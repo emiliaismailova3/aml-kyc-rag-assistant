@@ -1,0 +1,39 @@
+# --- Core RAG stack ---
+langchain>=0.3.0
+langchain-community>=0.3.0
+langchain-openai>=0.2.0
+langchain-chroma>=0.1.4
+chromadb>=0.5.0
+
+# --- Embeddings (open-source fallback to OpenAI text-embedding-3-small) ---
+sentence-transformers>=3.0.0
+
+# --- PDF loading ---
+pypdf>=4.0.0
+
+# --- LLM provider flexibility (OpenAI-compatible: Groq / Together / OpenAI) ---
+openai>=1.40.0
+
+# --- API layer ---
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.7.0
+
+# --- Demo UI ---
+streamlit>=1.37.0
+
+# --- Agent tools ---
+duckduckgo-search>=6.2.0
+numexpr>=2.10.0
+
+# --- Evaluation ---
+ragas>=0.2.0
+datasets>=2.20.0
+
+# --- Utilities ---
+python-dotenv>=1.0.1
+requests>=2.32.0
+tqdm>=4.66.0
+
+# --- Testing ---
+pytest>=8.2.0
