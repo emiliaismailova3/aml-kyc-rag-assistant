@@ -5,11 +5,13 @@ langchain-openai>=0.2.0
 langchain-chroma>=0.1.4
 chromadb>=0.5.0
 
-# --- Embeddings (open-source fallback to OpenAI text-embedding-3-small) ---
+# --- Embeddings (local default: BAAI/bge-small-en-v1.5, no API key needed) ---
 sentence-transformers>=3.0.0
+langchain-huggingface>=0.1.0
 
 # --- PDF loading ---
 pypdf>=4.0.0
+langchain-text-splitters>=0.3.0
 
 # --- LLM provider flexibility (OpenAI-compatible: Groq / Together / OpenAI) ---
 openai>=1.40.0
@@ -23,8 +25,9 @@ pydantic>=2.7.0
 streamlit>=1.37.0
 
 # --- Agent tools ---
+# calculator is a hand-rolled safe ast-based evaluator (no extra dependency);
+# web_search uses the free, keyless DuckDuckGo search API below.
 duckduckgo-search>=6.2.0
-numexpr>=2.10.0
 
 # --- Evaluation ---
 ragas>=0.2.0
