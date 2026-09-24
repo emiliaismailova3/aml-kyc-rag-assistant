@@ -1,0 +1,7 @@
+# Force LF line endings for files that run inside the Linux Docker containers,
+# regardless of the cloning machine's core.autocrlf setting (Windows git
+# defaults to checking these out as CRLF, which breaks the shebang line and
+# `set -euo pipefail` parsing inside the container).
+*.sh text eol=lf
+Dockerfile text eol=lf
+docker-compose.yml text eol=lf
