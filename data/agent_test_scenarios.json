@@ -1,0 +1,93 @@
+{
+  "description": "Test scenarios for the agentic layer (Step 7). Ten scenarios total: five that require the agent to invoke a tool (calculator or web search) because the answer cannot come from the AML/KYC knowledge base, and five that should be answered from the knowledge base alone (the agent should NOT call a tool). Used by tests/test_agent.py and src/evaluate.py to check that the agent routes correctly and does not, e.g., hallucinate a web search result for a question the RAG pipeline can already answer, or try to answer a live/numeric question from stale document context.",
+  "schema": {
+    "id": "short stable identifier",
+    "question": "the question asked to the agent",
+    "expected_route": "'tool' if the agent should call a tool (and which one), or 'rag' if it should answer from the knowledge base alone",
+    "expected_tool": "calculator | web_search | null (null for rag-routed scenarios)",
+    "ground_truth": "reference answer, or reference approach when the exact numeric/live value cannot be pinned down in advance",
+    "notes": "why this scenario is expected to route the way it does"
+  },
+  "scenarios": [
+    {
+      "id": "t01",
+      "question": "A compliance analyst has a customer whose beneficial ownership disclosure lists a 12% shareholding by a foreign PEP. If the bank's enhanced-due-diligence threshold is any beneficial owner holding at least 1/8 of the shares, does 12% clear that threshold?",
+      "expected_route": "tool",
+      "expected_tool": "calculator",
+      "ground_truth": "1/8 = 12.5%. Since 12% < 12.5%, the 12% shareholding does NOT clear the 1/8 (12.5%) threshold, so this rule alone would not trigger mandatory enhanced due diligence.",
+      "notes": "Requires a percentage-to-fraction numeric comparison; the knowledge base contains PEP/EDD policy but not this specific arithmetic, so the agent must use the calculator tool."
+    },
+    {
+      "id": "t02",
+      "question": "If a correspondent bank charges a flat compliance review fee of $450 per new respondent-institution onboarding, and a neobank onboards 37 new respondent banks this quarter, what is the total compliance review cost for the quarter?",
+      "expected_route": "tool",
+      "expected_tool": "calculator",
+      "ground_truth": "450 * 37 = $16,650.",
+      "notes": "Pure arithmetic with no AML/KYC content; tests that the agent does not try to justify a number from retrieved document text."
+    },
+    {
+      "id": "t03",
+      "question": "What is the current USD/AZN exchange rate today?",
+      "expected_route": "tool",
+      "expected_tool": "web_search",
+      "ground_truth": "A live, time-varying exchange rate that is not contained anywhere in the static AML/KYC document corpus; the agent must use its web-search tool rather than the knowledge base.",
+      "notes": "Live/volatile fact absent from the corpus; correct behaviour is a web search, not a knowledge-base answer or a refusal."
+    },
+    {
+      "id": "t04",
+      "question": "Is Azerbaijan currently on the FATF's list of jurisdictions under increased monitoring ('grey list')?",
+      "expected_route": "tool",
+      "expected_tool": "web_search",
+      "ground_truth": "FATF's grey list is updated at each Plenary and is not reproduced as a static fact in the 2025 Azerbaijan follow-up report in the knowledge base (that report covers technical-compliance re-ratings only), so this needs a live web search for the current list.",
+      "notes": "Distinguishes 'technical compliance re-rating' (in the corpus) from 'grey list status' (not in the corpus, and time-sensitive)."
+    },
+    {
+      "id": "t05",
+      "question": "Who won the 2026 FIFA World Cup?",
+      "expected_route": "tool",
+      "expected_tool": "web_search",
+      "ground_truth": "Unrelated to AML/KYC and not contained in the knowledge base at all; the agent should recognize the knowledge base cannot help and fall back to web search (or clearly state it does not know) rather than fabricating an answer from unrelated compliance documents.",
+      "notes": "Sanity check that the agent does not force an irrelevant document match onto a completely out-of-domain question."
+    },
+    {
+      "id": "t06",
+      "question": "What does 'beneficial ownership' mean in an AML context?",
+      "expected_route": "rag",
+      "expected_tool": null,
+      "ground_truth": "Ultimate control over funds in an account, whether through ownership or other means, as distinguished from mere signature authority or legal title over the account. See data/eval_questions.json:q01 for the full reference answer.",
+      "notes": "Directly answerable from wolfsberg_faqs_beneficial_ownership.pdf; the agent should not call any tool."
+    },
+    {
+      "id": "t07",
+      "question": "What enhanced due diligence measures does FATF require for higher-risk customer relationships?",
+      "expected_route": "rag",
+      "expected_tool": null,
+      "ground_truth": "Senior management approval, establishing source of wealth/source of funds, and enhanced ongoing monitoring. See data/eval_questions.json:q03.",
+      "notes": "Directly answerable from fatf_recommendations_2025.pdf; no tool required."
+    },
+    {
+      "id": "t08",
+      "question": "What are the two main sanctions screening controls used by financial institutions?",
+      "expected_route": "rag",
+      "expected_tool": null,
+      "ground_truth": "Transaction screening and customer/name screening. See data/eval_questions.json:q07.",
+      "notes": "Directly answerable from wolfsberg_sanctions_screening_guidance.pdf; no tool required."
+    },
+    {
+      "id": "t09",
+      "question": "Under Azerbaijan's AML law, how long can the financial monitoring organ freeze a suspicious transaction?",
+      "expected_route": "rag",
+      "expected_tool": null,
+      "ground_truth": "Not exceeding 72 hours (extendable by the relevant criminal-prosecution authority). See data/eval_questions.json:q11.",
+      "notes": "Directly answerable from azerbaijan_aml_law_unodc.pdf; no tool required."
+    },
+    {
+      "id": "t10",
+      "question": "How can a compliance officer check whether a payment institution in Azerbaijan is actually licensed by the Central Bank?",
+      "expected_route": "rag",
+      "expected_tool": null,
+      "ground_truth": "By checking CBAR's public registry of licensed payment and e-money institutions published on cbar.az. See data/eval_questions.json:q12.",
+      "notes": "Directly answerable from cbar_notice_unlicensed_payment_institutions.pdf; no tool required."
+    }
+  ]
+}

@@ -1,0 +1,133 @@
+{
+  "description": "Gold evaluation set for the AML/KYC Knowledge Assistant's RAG pipeline. Every question here is answerable purely from the document corpus in data/raw/ (no calculator or web search needed). Each entry pairs a realistic compliance-analyst question with a ground-truth answer distilled directly from the source documents. Used by src/evaluate.py to compute RAGAS metrics (answer relevance, faithfulness, answer correctness, context precision/recall) for both the base RAG pipeline and the agentic pipeline (Step 8), so the two can be compared on the same gold set. See data/agent_test_scenarios.json (Step 7) for the separate set of tool-requiring vs. RAG-only scenarios used to validate the agent's routing behaviour.",
+  "schema": {
+    "id": "short stable identifier",
+    "question": "the question asked to the assistant",
+    "ground_truth": "reference answer used by RAGAS as the 'ground truth' / 'reference' for correctness scoring",
+    "source_documents": "file name(s) in data/raw/ that the ground truth was distilled from",
+    "category": "topical tag used to group results in the evaluation report",
+    "requires_tool": "always false in this file -- kept for schema compatibility with data/agent_test_scenarios.json"
+  },
+  "questions": [
+    {
+      "id": "q01",
+      "question": "What does 'beneficial ownership' mean in an AML context, and how does it differ from being the named account holder?",
+      "ground_truth": "Beneficial ownership refers to ultimate control over the funds in an account, whether exercised through direct ownership or other means, as distinguished from mere signature authority or legal title. The person in whose name an account is opened is not necessarily the person who ultimately controls the funds, so financial institutions must look through the named accountholder to identify the natural person(s) who actually control the assets and/or are the ultimate source of funds, since that person's source of wealth is the one that must be subject to due diligence.",
+      "source_documents": ["wolfsberg_faqs_beneficial_ownership.pdf"],
+      "category": "beneficial_ownership",
+      "requires_tool": false
+    },
+    {
+      "id": "q02",
+      "question": "According to the FATF Recommendations, what customer due diligence (CDD) measures must financial institutions apply to every customer?",
+      "ground_truth": "Financial institutions must: (a) identify the customer and verify their identity using reliable, independent source documents, data or information; (b) identify the beneficial owner and take reasonable measures to verify their identity, including understanding the ownership and control structure for legal persons and arrangements; (c) understand and, as appropriate, obtain information on the purpose and intended nature of the business relationship; and (d) conduct ongoing due diligence on the business relationship, including scrutiny of transactions, to ensure they are consistent with the institution's knowledge of the customer, their business and risk profile. The extent of these measures should be determined using a risk-based approach.",
+      "source_documents": ["fatf_recommendations_2025.pdf"],
+      "category": "cdd",
+      "requires_tool": false
+    },
+    {
+      "id": "q03",
+      "question": "What additional due diligence documents or measures are required for a customer identified as higher risk (enhanced due diligence)?",
+      "ground_truth": "For higher-risk business relationships, financial institutions should apply enhanced due diligence measures, which include: obtaining senior management approval for establishing or continuing the business relationship, taking reasonable measures to establish the customer's source of wealth and source of funds, and conducting enhanced ongoing monitoring of the business relationship. These enhanced measures apply in addition to the standard CDD measures and must be proportionate to the specific level of risk identified.",
+      "source_documents": ["fatf_recommendations_2025.pdf"],
+      "category": "edd",
+      "requires_tool": false
+    },
+    {
+      "id": "q04",
+      "question": "How does the Wolfsberg Group define a Politically Exposed Person (PEP), and does the definition automatically extend to state-owned enterprise executives?",
+      "ground_truth": "There is no single, globally agreed definition of a PEP, but a PEP is generally understood to be a natural person who holds a senior, prominent or important public function with substantial authority over policy, government operations, or the use/allocation of government-owned resources. Examples explicitly listed include heads of state/government and ministers, senior judicial officials whose decisions are not subject to appeal, senior military officers, members of ruling royal families with governing responsibilities, senior officials of major political parties, and senior executives of state-owned enterprises -- but only where that state-owned enterprise has genuine economic or political importance, not automatically for every SOE executive. The Wolfsberg Group advocates applying a risk-based approach to all PEPs (foreign or domestic) rather than automatically treating every PEP as high risk.",
+      "source_documents": ["wolfsberg_pep_guidance.pdf"],
+      "category": "pep",
+      "requires_tool": false
+    },
+    {
+      "id": "q05",
+      "question": "Who counts as a PEP's 'Close Family Member' versus a 'Close Associate' under the Wolfsberg PEP Guidance?",
+      "ground_truth": "Close Family includes a PEP's direct family members: their spouse (or equivalent partner), children and their spouses, parents, and siblings. A Close Associate includes the PEP's widely and publicly known close business colleagues or personal advisors, particularly persons acting in a financial fiduciary capacity for the PEP. Close Family Members and Close Associates may be subject to enhanced due diligence, but they are not automatically classified as PEPs themselves and do not necessarily receive the identical due diligence treatment as the political officeholder.",
+      "source_documents": ["wolfsberg_pep_guidance.pdf"],
+      "category": "pep",
+      "requires_tool": false
+    },
+    {
+      "id": "q06",
+      "question": "What is the difference between 'Source of Wealth' (SoW) and 'Source of Funds' (SoF) in customer due diligence?",
+      "ground_truth": "Source of Wealth refers to a description of the economic, business and/or commercial activities that generated, or significantly contributed to, a customer's overall net worth (assets minus liabilities) over time -- e.g. inheritance, business ownership, employment income, or investment gains. Source of Funds refers specifically to the origin of the funds used to fund a particular account or transaction, i.e. how and for what purpose an account is going to be funded. SoW gives a picture of how the customer accumulated wealth in general, while SoF explains where the money going into a specific account or transaction actually came from.",
+      "source_documents": ["wolfsberg_source_of_wealth_funds_faqs.pdf"],
+      "category": "cdd",
+      "requires_tool": false
+    },
+    {
+      "id": "q07",
+      "question": "What are the two main controls used in sanctions screening, according to the Wolfsberg Group?",
+      "ground_truth": "The two main sanctions screening controls are transaction screening and customer (or name) screening. Transaction screening identifies transactions involving targeted individuals or entities, while customer/name screening is designed to identify targeted individuals or entities during onboarding or throughout the lifecycle of the customer relationship. Together they form a set of controls for identifying sanctions targets, and should be deployed as part of a wider financial crime compliance programme rather than in isolation.",
+      "source_documents": ["wolfsberg_sanctions_screening_guidance.pdf"],
+      "category": "sanctions",
+      "requires_tool": false
+    },
+    {
+      "id": "q08",
+      "question": "What is the core principle of the risk-based approach (RBA) under FATF Recommendation 1?",
+      "ground_truth": "Countries and financial institutions should first identify, assess and understand the money laundering and terrorist financing risks they face, and then apply measures to prevent or mitigate those risks that are proportionate to the risks identified. Where higher risks are identified, enhanced measures must be applied; where lower risks are identified, simplified measures should be allowed and encouraged. This allows resources to be allocated more effectively rather than applying uniform controls regardless of actual risk, although simplified measures are never permitted where there is a suspicion of money laundering or terrorist financing.",
+      "source_documents": ["fatf_recommendations_2025.pdf"],
+      "category": "risk_based_approach",
+      "requires_tool": false
+    },
+    {
+      "id": "q09",
+      "question": "What must a financial institution do before establishing a new cross-border correspondent banking relationship?",
+      "ground_truth": "Before establishing a new correspondent banking relationship, a financial institution must, in addition to normal customer due diligence: gather sufficient information about the respondent institution to fully understand the nature of its business and determine its reputation and quality of supervision (including whether it has been subject to a money-laundering or terrorist-financing investigation or regulatory action) from publicly available information; assess the respondent institution's AML/CFT controls; obtain approval from senior management before establishing the new relationship; and clearly document the respective AML/CFT responsibilities of each institution.",
+      "source_documents": ["fatf_recommendations_2025.pdf", "wolfsberg_correspondent_banking_principles_2022.pdf"],
+      "category": "correspondent_banking",
+      "requires_tool": false
+    },
+    {
+      "id": "q10",
+      "question": "Under Azerbaijan's AML/CFT law, within what timeframe must a monitoring entity report a suspicious transaction to the financial monitoring organ, and what happens after the report is filed?",
+      "ground_truth": "For transactions covered under Article 7.1, information must be submitted to the financial monitoring organ within 3 business days after receiving the order/commission to execute the transaction. For certain other transactions (Articles 7.2 and 9.15), information must be submitted before execution, and the monitoring entity must not execute the transaction for two working days after reporting; if the financial monitoring organ does not order suspension within that period, the transaction may proceed. In urgent cases, the report may initially be made orally but must be immediately followed up in writing.",
+      "source_documents": ["azerbaijan_aml_law_unodc.pdf"],
+      "category": "azerbaijan_law",
+      "requires_tool": false
+    },
+    {
+      "id": "q11",
+      "question": "For how long can Azerbaijan's financial monitoring organ freeze the execution of a suspicious transaction related to money laundering or terrorist financing?",
+      "ground_truth": "The financial monitoring organ may take a substantiated decision to freeze the execution of a suspicious transaction related to the legalization of criminally obtained funds or the financing of terrorism, based on information obtained, within two business days. The freeze may last for a period not exceeding 72 hours, though this period may be prolonged by the state authorities responsible for criminal prosecution, following the procedure specified in the Criminal Procedure Code. The customer must not be informed of the freeze.",
+      "source_documents": ["azerbaijan_aml_law_unodc.pdf"],
+      "category": "azerbaijan_law",
+      "requires_tool": false
+    },
+    {
+      "id": "q12",
+      "question": "How can someone verify whether a payment institution or electronic money institution operating in Azerbaijan is actually licensed by the Central Bank?",
+      "ground_truth": "The Central Bank of the Republic of Azerbaijan (CBAR) maintains a public registry of licensed payment and electronic money institutions on its official website (cbar.az, under the electronic-money-institutions page). Anyone can check whether a given payment or e-money institution appears on this published list to confirm it is licensed. If a person is found to be operating as a payment or e-money institution without a license, the Central Bank requests that this be reported to it (via contact.ecbar.az), and the confidentiality of the informant is guaranteed.",
+      "source_documents": ["cbar_notice_unlicensed_payment_institutions.pdf"],
+      "category": "azerbaijan_cbar",
+      "requires_tool": false
+    },
+    {
+      "id": "q13",
+      "question": "Why does the Wolfsberg Group say digital (non-face-to-face) customer onboarding can be managed as effectively as, or better than, traditional face-to-face onboarding?",
+      "ground_truth": "Digital approaches to customer lifecycle risk management, if defined and calibrated responsibly, let a financial institution build a more holistic, dynamic customer profile using a wider set of identity attributes mapped to internal and external data sources capable of alerting the institution to changes or deviations from expected customer behavior. This enables a shift from traditional periodic refresh cycles to a more effective trigger-based approach to monitoring, allowing the institution to prioritize resources on genuine financial crime threats while also supporting financial inclusion for customers who cannot be onboarded face-to-face.",
+      "source_documents": ["wolfsberg_digital_customer_lifecycle_risk_management.pdf"],
+      "category": "digital_onboarding",
+      "requires_tool": false
+    },
+    {
+      "id": "q14",
+      "question": "What recent legislative changes has Azerbaijan made regarding beneficial ownership (R.24) according to the 2025 FATF/MONEYVAL follow-up report?",
+      "ground_truth": "On 11 April 2025, Azerbaijan adopted amendments to its AML/CFT Law and to the Law on State Registration and State Registry of Legal Persons that introduced obligations to submit and maintain updated beneficial ownership information, and that empowered authorities to collect and cross-check this data, in line with FATF Recommendation 24. In addition, between 2023 and 2024 Azerbaijan's Financial Monitoring Service (FMS) conducted an assessment of money-laundering/terrorist-financing risks related to the misuse of commercial legal entities, covering the 2015-2021 period.",
+      "source_documents": ["fatf_azerbaijan_fur_2025.pdf"],
+      "category": "azerbaijan_law",
+      "requires_tool": false
+    },
+    {
+      "id": "q15",
+      "question": "A neobank customer in Azerbaijan wants to know: if they exceed AZN 50 in a single purchase of digital content via their mobile operator, does that count as a regulated payment transaction, and what is the monthly threshold for that to apply?",
+      "ground_truth": "Yes. Under Article 3.2.9 of the Law of the Republic of Azerbaijan 'On Payment Services and Payment Systems' (as referenced in CBAR's Regulation on payment and electronic money institutions), when the maximum amount of a single payment transaction provided by a mobile network operator for the purchase of digital content and voice-based services exceeds AZN 50, and the total amount of such transactions for one subscriber over a month surpasses AZN 250 (or total charitable-activity transactions for one subscriber exceed AZN 500 in a month), those transactions are considered a regulated payment service for the purposes of the Law.",
+      "source_documents": ["cbar_regulation_payment_emoney_institutions_2024.pdf"],
+      "category": "azerbaijan_cbar",
+      "requires_tool": false
+    }
+  ]
+}
