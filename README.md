@@ -50,7 +50,7 @@ A full mermaid diagram will be added to this README in the final step.
 
 1. ✅ Repo scaffolding, `.gitignore`, `requirements.txt`, source corpus download.
 2. ✅ Gold evaluation question set (`data/eval_questions.json`).
-3. ⬜ Document ingestion pipeline (`src/ingest.py`).
+3. ✅ Document ingestion pipeline (`src/ingest.py`).
 4. ⬜ Embeddings + Chroma vector store + retrieval smoke test.
 5. ⬜ Base RAG pipeline (`src/rag.py`).
 6. ⬜ FastAPI backend + Streamlit demo UI.
