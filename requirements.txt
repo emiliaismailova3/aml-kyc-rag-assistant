@@ -1,42 +1,60 @@
+# Pinned to the exact versions this project was built and tested against
+# (LangChain 1.x / LangGraph-based agents). Minor-version bumps within
+# LangChain's own ecosystem have repeatedly broken cross-package
+# compatibility (see src/evaluate.py's _patch_ragas_vertexai_import for one
+# such case with ragas), so exact pins here are what keep
+# `pip install -r requirements.txt` reproducible.
+
 # --- Core RAG stack ---
-langchain>=0.3.0
-langchain-community>=0.3.0
-langchain-openai>=0.2.0
-langchain-chroma>=0.1.4
-chromadb>=0.5.0
+langchain==1.4.2
+langchain-community==0.4.2
+langchain-openai==1.6.6
+langchain-chroma==1.1.0
+langchain-text-splitters==1.1.2
+chromadb==1.5.9
+
+# --- Agentic layer (LangChain 1.x's LangGraph-based create_agent) ---
+langgraph==1.2.12
 
 # --- Embeddings (local default: BAAI/bge-small-en-v1.5, no API key needed) ---
-sentence-transformers>=3.0.0
-langchain-huggingface>=0.1.0
+sentence-transformers==6.1.0
+langchain-huggingface==1.2.2
 
 # --- PDF loading ---
-pypdf>=4.0.0
-langchain-text-splitters>=0.3.0
+pypdf==6.19.0
 
 # --- LLM provider flexibility (OpenAI-compatible: Groq / Together / OpenAI) ---
-openai>=1.40.0
+# Pinned below 3.0.0: newer openai releases either require jiter>=0.16 (which
+# no version of `instructor`, a hard dependency of ragas, allows) or are
+# themselves excluded by instructor's own openai<3.0.0 upper bound.
+openai==2.54.0
 
 # --- API layer ---
-fastapi>=0.111.0
-uvicorn[standard]>=0.30.0
-pydantic>=2.7.0
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+pydantic==2.13.5
 
 # --- Demo UI ---
-streamlit>=1.37.0
+streamlit==1.64.0
 
 # --- Agent tools ---
 # calculator is a hand-rolled safe ast-based evaluator (no extra dependency);
 # web_search uses the free, keyless DuckDuckGo search API below.
-duckduckgo-search>=6.2.0
+duckduckgo-search==8.1.1
 
 # --- Evaluation ---
-ragas>=0.2.0
-datasets>=2.20.0
+ragas==0.4.3
+datasets==5.0.1
+# ragas depends on instructor unpinned; pinning it ourselves avoids pip's
+# resolver backtracking through instructor's entire release history and
+# picks a version whose jiter requirement (<0.15) overlaps with the openai
+# pin above (jiter>=0.10,<1).
+instructor==1.16.0
 
 # --- Utilities ---
-python-dotenv>=1.0.1
-requests>=2.32.0
-tqdm>=4.66.0
+python-dotenv==1.2.3
+requests==2.34.2
+tqdm==4.70.1
 
 # --- Testing ---
-pytest>=8.2.0
+pytest==9.1.1
