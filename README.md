@@ -54,7 +54,7 @@ A full mermaid diagram will be added to this README in the final step.
 4. ✅ Embeddings + Chroma vector store + retrieval smoke test.
 5. ✅ Base RAG pipeline (`src/rag.py`).
 6. ✅ FastAPI backend + Streamlit demo UI.
-7. ⬜ Agentic tool-calling layer (calculator + web search tools).
+7. ✅ Agentic tool-calling layer (calculator + web search tools).
 8. ⬜ RAGAS evaluation: base RAG vs. agentic layer.
 9. ⬜ Docker + docker-compose packaging.
 10. ⬜ Final README: architecture diagram, usage, examples, metrics, CV bullets.
