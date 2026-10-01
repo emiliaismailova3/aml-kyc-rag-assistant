@@ -106,10 +106,18 @@ def clean_citations(answer: str) -> str:
     return _WEIRD_CITATION_RE.sub(r"[\1]", answer)
 
 
-def get_llm(config: LLMConfig | None = None) -> ChatOpenAI:
+def get_llm(config: LLMConfig | None = None, max_tokens: int | None = None) -> ChatOpenAI:
     """Build the chat LLM client. Pass an explicit `config` (e.g. from
     src.config.get_eval_llm_config()) to use a different model than the one
-    that answers questions -- used by src.evaluate for the RAGAS judge."""
+    that answers questions -- used by src.evaluate for the RAGAS judge.
+
+    `max_tokens` is left at the provider default (None) for normal Q&A, but
+    src.evaluate passes a higher explicit value for the RAGAS judge: reasoning
+    models like gpt-oss spend part of their output budget on internal
+    reasoning before the final answer, and ragas's default expectations can
+    hit that cap and raise LLMDidNotFinishException ("generation was not
+    completed") if it's too low.
+    """
     config = config or get_llm_config()
     if not config.api_key:
         raise RuntimeError(
@@ -122,6 +130,7 @@ def get_llm(config: LLMConfig | None = None) -> ChatOpenAI:
         base_url=config.api_base,
         temperature=0,
         max_retries=LLM_MAX_RETRIES,
+        max_tokens=max_tokens,
     )
 
 

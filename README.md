@@ -217,6 +217,40 @@ being able to crash a whole batch evaluation run, and the model's citation
 format not matching the prompt's — all fixed in `src/agent.py` and
 `src/rag.py`; see their docstrings and inline comments for details.)
 
+Running the actual RAGAS evaluation (`python -m src.evaluate --pipeline both`)
+against Groq surfaced two more, specific to using a non-OpenAI judge model:
+
+- **`answer_relevancy` requests `n=3`; Groq allows only `n=1`.** RAGAS's
+  `AnswerRelevancy` metric generates 3 reverse-engineered questions per answer
+  in a single call (`strictness=3`, passed as `n=3` to the LLM) to average
+  over for robustness -- Groq rejects any `n>1` outright
+  (`'n': number must be at most 1`). Fixed by constructing the metric with
+  `strictness=1` in `src/evaluate.py`. This is a real tradeoff (one sampled
+  question instead of three averaged), not a cosmetic workaround, and is
+  purely a Groq-API constraint -- it wouldn't come up against OpenAI directly.
+- **The judge ran out of output tokens mid-answer** (`LLMDidNotFinishException:
+  generation was not completed`). Reasoning models like gpt-oss spend part of
+  their output budget on internal reasoning before the actual answer, and
+  ragas's default token budget assumption didn't leave enough room. Fixed by
+  passing a higher explicit `max_tokens` (4096) for the judge LLM specifically
+  (`src/rag.get_llm(..., max_tokens=...)`), without changing the model that
+  answers questions.
+
+Separately (not a bug, a capacity constraint worth knowing about): a full
+`--pipeline both` run makes up to 15 questions x 2 pipelines x 5 metrics =
+150 LLM calls, which **exhausted Groq's free-tier daily token quota (200k
+TPD)** partway through evaluating just the first pipeline. Once the daily cap
+is hit, every further call 429s until the next day's reset, and ragas records
+`NaN` for those rather than crashing (`raise_exceptions=False`, the default) --
+so the run finishes, but with gaps for whatever ran out of quota. The
+evaluator's own retry layer is deliberately capped low (`RunConfig(max_retries=2)`
+rather than ragas's default 10) specifically so hitting this doesn't also
+balloon into dozens of doomed retry attempts per metric on top of the LLM
+client's own 5 retries. If you hit this: switch `EVAL_LLM_MODEL` to a smaller
+model (e.g. `openai/gpt-oss-20b`), evaluate `--pipeline rag` and
+`--pipeline agent` as two separate runs (possibly on different days), or
+upgrade the Groq account tier.
+
 ## Known limitations
 
 - PDF text extraction occasionally mangles curly quotes/em-dashes from Word-exported

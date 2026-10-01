@@ -196,8 +196,8 @@ def _run_ragas(samples: list[dict]) -> dict:
     from ragas.embeddings import LangchainEmbeddingsWrapper
     from ragas.llms import LangchainLLMWrapper
     from ragas.metrics import (
+        AnswerRelevancy,
         answer_correctness,
-        answer_relevancy,
         context_precision,
         context_recall,
         faithfulness,
@@ -220,20 +220,35 @@ def _run_ragas(samples: list[dict]) -> dict:
         ]
     )
 
-    ragas_llm = LangchainLLMWrapper(get_llm(get_eval_llm_config()))
+    # max_tokens is bumped for the judge: gpt-oss (and other reasoning models)
+    # spend part of the output budget on internal reasoning before the final
+    # JSON answer, and ragas's prompts otherwise hit the provider default cap
+    # mid-generation (observed: LLMDidNotFinishException).
+    ragas_llm = LangchainLLMWrapper(get_llm(get_eval_llm_config(), max_tokens=4096))
     ragas_embeddings = LangchainEmbeddingsWrapper(get_embeddings())
+
+    # answer_relevancy's default strictness=3 asks the LLM to generate 3
+    # reverse-engineered questions in a single call (n=3) to average over for
+    # robustness. Groq rejects any n>1 ("'n': number must be at most 1"), so
+    # this is pinned to 1 -- a real accuracy/robustness tradeoff (one sampled
+    # question instead of three), not a cosmetic workaround.
+    answer_relevancy_n1 = AnswerRelevancy(strictness=1)
 
     # max_workers=1: run RAGAS's own judge-LLM calls sequentially rather than
     # the default 16-way concurrency, since Groq's free tier rate-limits
-    # (429) hard under concurrent load. RunConfig's own retry/backoff
-    # (default: up to 10 retries, 60s max wait) then absorbs any 429s that
-    # still occur one at a time.
+    # (429) hard under concurrent load. max_retries is kept low (2, vs
+    # ragas's default 10): our own LLM client already retries each individual
+    # API call up to LLM_MAX_RETRIES (5) times with backoff, so a high
+    # ragas-level retry count on top multiplies into dozens of attempts per
+    # metric once a request is genuinely failing (e.g. a daily token-quota
+    # error, which won't resolve within any backoff window) -- that burned
+    # through a free-tier daily quota and ran for over an hour in practice.
     result = evaluate(
         dataset,
-        metrics=[faithfulness, answer_relevancy, answer_correctness, context_precision, context_recall],
+        metrics=[faithfulness, answer_relevancy_n1, answer_correctness, context_precision, context_recall],
         llm=ragas_llm,
         embeddings=ragas_embeddings,
-        run_config=RunConfig(max_workers=1),
+        run_config=RunConfig(max_workers=1, max_retries=2, max_wait=30, timeout=120),
     )
     return result.to_pandas().to_dict(orient="records"), {
         name: float(result[name]) for name in RAGAS_METRIC_NAMES if name in result
