@@ -39,8 +39,11 @@ streamlit==1.64.0
 
 # --- Agent tools ---
 # calculator is a hand-rolled safe ast-based evaluator (no extra dependency);
-# web_search uses the free, keyless DuckDuckGo search API below.
-duckduckgo-search==8.1.1
+# internet_search uses the free, keyless ddgs (DuckDuckGo) package below.
+# (duckduckgo-search was renamed upstream to ddgs; the old package name now
+# just warns and re-exports this one, and its search results had started
+# returning localized/irrelevant junk for some queries.)
+ddgs==9.16.0
 
 # --- Evaluation ---
 ragas==0.4.3

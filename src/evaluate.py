@@ -27,7 +27,9 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import time
 from pathlib import Path
+from typing import Callable
 
 from src.config import PROJECT_ROOT
 
@@ -35,6 +37,11 @@ logger = logging.getLogger(__name__)
 
 EVAL_QUESTIONS_PATH = PROJECT_ROOT / "data" / "eval_questions.json"
 RESULTS_DIR = PROJECT_ROOT / "data" / "eval_results"
+
+# Small delay between questions to stay under Groq's free-tier rate limit
+# proactively, on top of the LLM client's own retry-with-backoff on 429s
+# (src.rag.LLM_MAX_RETRIES) once a limit is actually hit.
+INTER_QUESTION_DELAY_SECONDS = 1.0
 
 RAGAS_METRIC_NAMES = [
     "faithfulness",
@@ -50,6 +57,52 @@ def _load_eval_questions() -> list[dict]:
         return json.load(f)["questions"]
 
 
+def _collect_samples_with_resume(
+    questions: list[dict],
+    answer_one: Callable[[dict], dict],
+    cache_path: Path,
+    delay_seconds: float = INTER_QUESTION_DELAY_SECONDS,
+) -> list[dict]:
+    """Run answer_one(item) for every question not already in cache_path,
+    saving the growing sample list to disk after every question.
+
+    This makes `python -m src.evaluate` resumable: a run that dies partway
+    through (e.g. the LLM client's retries are finally exhausted on a
+    sustained Groq rate limit) can simply be re-run and will pick up where
+    it left off instead of re-answering already-completed questions.
+    """
+    samples: list[dict] = []
+    completed_ids: set[str] = set()
+    if cache_path.exists():
+        with open(cache_path, encoding="utf-8") as f:
+            samples = json.load(f)
+        completed_ids = {s["id"] for s in samples}
+        logger.info("Resuming %s: %d questions already answered", cache_path, len(completed_ids))
+
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    for item in questions:
+        if item["id"] in completed_ids:
+            continue
+        try:
+            sample = answer_one(item)
+        except Exception:
+            logger.exception(
+                "Failed to answer %s after retries; %d results saved to %s so far -- "
+                "re-run this command to resume from here.",
+                item["id"],
+                len(samples),
+                cache_path,
+            )
+            raise
+        samples.append(sample)
+        with open(cache_path, "w", encoding="utf-8") as f:
+            json.dump(samples, f, indent=2, ensure_ascii=False)
+        logger.info("answered %s", item["id"])
+        time.sleep(delay_seconds)
+
+    return samples
+
+
 def _collect_rag_samples(questions: list[dict]) -> list[dict]:
     """Run every question through the base RAG pipeline, capturing the
     retrieved context text (not just source labels) for RAGAS's context
@@ -57,21 +110,19 @@ def _collect_rag_samples(questions: list[dict]) -> list[dict]:
     from src.rag import RAGPipeline
 
     pipeline = RAGPipeline()
-    samples = []
-    for item in questions:
+
+    def answer_one(item: dict) -> dict:
         chunks = pipeline.retrieve(item["question"])
         result = pipeline.answer(item["question"])
-        samples.append(
-            {
-                "id": item["id"],
-                "question": item["question"],
-                "answer": result["answer"],
-                "contexts": [c.page_content for c in chunks],
-                "ground_truth": item["ground_truth"],
-            }
-        )
-        logger.info("[rag] answered %s", item["id"])
-    return samples
+        return {
+            "id": item["id"],
+            "question": item["question"],
+            "answer": result["answer"],
+            "contexts": [c.page_content for c in chunks],
+            "ground_truth": item["ground_truth"],
+        }
+
+    return _collect_samples_with_resume(questions, answer_one, RESULTS_DIR / "rag_samples_cache.json")
 
 
 def _collect_agent_samples(questions: list[dict]) -> list[dict]:
@@ -84,25 +135,23 @@ def _collect_agent_samples(questions: list[dict]) -> list[dict]:
     from src.agent import AgentPipeline
 
     pipeline = AgentPipeline()
-    samples = []
-    for item in questions:
+
+    def answer_one(item: dict) -> dict:
         result = pipeline.answer(item["question"])
         contexts = [
             call["output"]
             for call in result["tool_calls"]
             if call["tool"] == "search_knowledge_base"
         ]
-        samples.append(
-            {
-                "id": item["id"],
-                "question": item["question"],
-                "answer": result["answer"],
-                "contexts": contexts or [""],  # RAGAS requires a non-empty contexts list
-                "ground_truth": item["ground_truth"],
-            }
-        )
-        logger.info("[agent] answered %s", item["id"])
-    return samples
+        return {
+            "id": item["id"],
+            "question": item["question"],
+            "answer": result["answer"],
+            "contexts": contexts or [""],  # RAGAS requires a non-empty contexts list
+            "ground_truth": item["ground_truth"],
+        }
+
+    return _collect_samples_with_resume(questions, answer_one, RESULTS_DIR / "agent_samples_cache.json")
 
 
 def _patch_ragas_vertexai_import() -> None:
@@ -130,8 +179,16 @@ def _patch_ragas_vertexai_import() -> None:
 
 def _run_ragas(samples: list[dict]) -> dict:
     """Compute RAGAS metrics for a list of {question, answer, contexts,
-    ground_truth} samples, using our configured LLM and local embeddings as
-    the judge/embedder so no OpenAI key is required beyond the chat LLM."""
+    ground_truth} samples.
+
+    Both the judge LLM and the embeddings are explicitly our own configured
+    ones (never RAGAS's OpenAI default): the LLM via src.config.get_eval_llm_config()
+    (same provider/key as the main LLM, but the model can be overridden with
+    EVAL_LLM_MODEL in .env -- useful if the model answering questions, e.g.
+    gpt-oss, emits output that breaks RAGAS's JSON-based scoring prompts), and
+    embeddings via our local sentence-transformers model, so no
+    OPENAI_API_KEY is ever required.
+    """
     _patch_ragas_vertexai_import()
 
     from datasets import Dataset
@@ -145,7 +202,9 @@ def _run_ragas(samples: list[dict]) -> dict:
         context_recall,
         faithfulness,
     )
+    from ragas.run_config import RunConfig
 
+    from src.config import get_eval_llm_config
     from src.rag import get_llm
     from src.vectorstore import get_embeddings
 
@@ -161,14 +220,20 @@ def _run_ragas(samples: list[dict]) -> dict:
         ]
     )
 
-    ragas_llm = LangchainLLMWrapper(get_llm())
+    ragas_llm = LangchainLLMWrapper(get_llm(get_eval_llm_config()))
     ragas_embeddings = LangchainEmbeddingsWrapper(get_embeddings())
 
+    # max_workers=1: run RAGAS's own judge-LLM calls sequentially rather than
+    # the default 16-way concurrency, since Groq's free tier rate-limits
+    # (429) hard under concurrent load. RunConfig's own retry/backoff
+    # (default: up to 10 retries, 60s max wait) then absorbs any 429s that
+    # still occur one at a time.
     result = evaluate(
         dataset,
         metrics=[faithfulness, answer_relevancy, answer_correctness, context_precision, context_recall],
         llm=ragas_llm,
         embeddings=ragas_embeddings,
+        run_config=RunConfig(max_workers=1),
     )
     return result.to_pandas().to_dict(orient="records"), {
         name: float(result[name]) for name in RAGAS_METRIC_NAMES if name in result

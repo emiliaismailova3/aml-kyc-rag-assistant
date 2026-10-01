@@ -11,7 +11,7 @@ already-built Chroma index from Step 4.
 
 import pytest
 
-from src.agent import calculator, search_knowledge_base
+from src.agent import calculator, internet_search, search_knowledge_base
 
 
 @pytest.mark.parametrize(
@@ -53,3 +53,14 @@ def test_search_knowledge_base_cites_source_and_page():
     result = search_knowledge_base.invoke({"query": "sanctions screening controls"})
     assert "Source:" in result
     assert "p." in result
+
+
+def test_internet_search_returns_string_without_crashing():
+    """Smoke test for the ddgs migration (duckduckgo_search was renamed
+    upstream and had started returning irrelevant/localized junk for some
+    queries). Network-dependent, so the assertion stays loose: it must not
+    hit the tool's own exception-handling branch, but "no results for this
+    exact query" is an acceptable, non-flaky outcome."""
+    result = internet_search.invoke({"query": "FATF grey list jurisdictions"})
+    assert isinstance(result, str)
+    assert "Web search failed" not in result

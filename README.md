@@ -53,7 +53,7 @@ flowchart TD
         U --> AG{"src/agent.py<br/>AgentPipeline<br/>(LangGraph create_agent)"}
         AG -->|"search_knowledge_base"| D
         AG -->|"calculator"| CALC["ast-based safe evaluator"]
-        AG -->|"web_search"| WEB["DuckDuckGo (free, no key)"]
+        AG -->|"internet_search"| WEB["ddgs / DuckDuckGo (free, no key)"]
         LLM2["LLM decides which tool(s)<br/>to call, if any"] -.-> AG
     end
 
@@ -127,6 +127,14 @@ Together AI and OpenAI both work too — just change `LLM_PROVIDER`, the matchin
 **Embeddings need no key at all** by default (`EMBEDDING_PROVIDER=local`, a
 sentence-transformers model that runs on CPU).
 
+Groq retires/renames chat models over time, so `LLM_MODEL` may need updating —
+if you get a `404 model_not_found`, check your account's current model list at
+console.groq.com and update `LLM_MODEL` in `.env`. As of writing this project
+defaults to `openai/gpt-oss-120b`; `openai/gpt-oss-20b` and `qwen/qwen3.8-27b`
+are also available. If a model's output ever breaks RAGAS's scoring (see
+below), point `EVAL_LLM_MODEL` at a different model just for the judge,
+without changing which model answers questions.
+
 ## What's been run for real vs. what needs your API key
 
 Everything through retrieval was built and verified against the real 16-document
@@ -178,6 +186,37 @@ Once populated, this table is written to
 [`data/eval_results/metrics_comparison.md`](data/eval_results/) by
 `src/evaluate.py` and can be pasted back in here.
 
+## Lessons learned / debugging notes
+
+Running this against a real Groq key (rather than just importing against mocks)
+surfaced a few issues that are worth noting for anyone hitting the same thing:
+
+- **Decommissioned default model.** The original default, `llama-3.3-70b-versatile`,
+  returned `404 model_not_found` on Groq. Provider-hosted "serverless" model
+  catalogs change over time independently of this repo's code — if a model
+  disappears, check the provider's current list and update `LLM_MODEL` in
+  `.env` (and the default in `src/config.py` if it should change for everyone).
+- **Tool-name collision with a model's own built-in tools.** With the web-search
+  tool named `web_search`, `openai/gpt-oss-120b` called it with arguments shaped
+  like `{"cursor": 2, "id": 0}` — the schema of gpt-oss's *own* built-in browsing
+  tool, not ours — causing Groq to reject the call (`400 tool_use_failed`).
+  Renaming it to `internet_search` and explicitly documenting in the tool's
+  docstring that it takes a single plain `query: str` argument (not structured
+  browser-style arguments) fixed it. Lesson: a tool name/shape that happens to
+  match a model's own built-in tool can get silently confused with it.
+- **`duckduckgo_search` → `ddgs`.** The package was renamed upstream; the old
+  name now just emits a deprecation warning and re-exports the new one, but the
+  search results themselves had also started coming back empty or
+  locale-irrelevant (e.g. a login page for an unrelated local business) for
+  some queries. Migrating the import to `ddgs` and passing `region="us-en"`
+  fixed both the deprecation warning and the irrelevant-results problem.
+
+(A few more issues came up in the same debugging session — the agent not
+knowing the current date, an occasional runaway search loop, one bad tool call
+being able to crash a whole batch evaluation run, and the model's citation
+format not matching the prompt's — all fixed in `src/agent.py` and
+`src/rag.py`; see their docstrings and inline comments for details.)
+
 ## Known limitations
 
 - PDF text extraction occasionally mangles curly quotes/em-dashes from Word-exported
@@ -226,7 +265,7 @@ Dockerfile, docker-compose.yml, docker/entrypoint.sh
   "don't know" fallback to avoid hallucinated compliance guidance.
 - Designed an agentic tool-calling layer (LangChain/LangGraph) that autonomously
   routes between knowledge-base retrieval, a sandboxed calculator, and live web
-  search, validated against 10 hand-written routing scenarios.
+  search, with 10 hand-written routing test scenarios.
 - Implemented a RAGAS evaluation framework (faithfulness, answer relevancy, answer
   correctness, context precision/recall) comparing a base RAG pipeline against an
   agentic one on a 15-question gold set distilled directly from source regulations.

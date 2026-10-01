@@ -7,7 +7,7 @@ question, whether to:
   - call `search_knowledge_base` (the same Chroma retriever as the base RAG
     pipeline, exposed as a tool),
   - call `calculator` for arithmetic/percentage questions,
-  - call `web_search` (DuckDuckGo, free, no API key) for live or
+  - call `internet_search` (ddgs/DuckDuckGo, free, no API key) for live or
     out-of-corpus information, or
   - admit it doesn't know.
 
@@ -24,17 +24,31 @@ import argparse
 import ast
 import logging
 import operator
+from datetime import date
 from typing import TypedDict
 
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 from langchain.agents import create_agent
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import tool
 
-from src.rag import format_context, get_llm
+from src.rag import clean_citations, format_context, get_llm
 from src.vectorstore import load_vectorstore
 
 logger = logging.getLogger(__name__)
+
+# Caps the agent's reasoning loop (model turn + tool turn = 1 "super-step"
+# each in LangGraph) so a model that gets stuck re-searching (observed: 7
+# internet_search calls in a row for one question) can't run away burning
+# rate-limited API calls. ~10 allows e.g. 2 searches + a knowledge-base
+# lookup + a calculator call with room to spare, while still failing fast.
+AGENT_RECURSION_LIMIT = 10
+
+# Non-rate-limit tool errors (e.g. Groq's 400 tool_use_failed when a model
+# passes malformed tool arguments) are retried once before giving up, since
+# they're usually a one-off glitch in how the model formatted a single call
+# rather than a persistent problem.
+AGENT_MAX_ATTEMPTS = 2
 
 # --- Calculator tool -------------------------------------------------------
 # A small hand-rolled safe evaluator (ast-based, whitelist of operators) is
@@ -80,22 +94,31 @@ def calculator(expression: str) -> str:
 
 
 # --- Web search tool ---------------------------------------------------------
+# Uses the `ddgs` package (duckduckgo_search was renamed upstream; the old
+# package now just warns and re-exports this one). region="us-en" avoids
+# locale-dependent results (observed: a non-English local-business login page
+# for a generic query) when the host machine's locale isn't English.
 
 
 @tool
-def web_search(query: str) -> str:
+def internet_search(query: str) -> str:
     """Search the live web for current information that is NOT in the static
     AML/KYC knowledge base -- e.g. today's exchange rates, the current FATF
     grey list, recent news, or general knowledge unrelated to the compliance
     corpus. Returns the top few result titles, snippets, and URLs.
+
+    Args:
+        query: a plain-text search query string, e.g. "FATF grey list 2026".
+            Pass ONLY this single string argument -- do not pass structured
+            or browser-tool-style arguments such as {"cursor": ..., "id": ...}.
     """
     try:
         with DDGS() as ddgs:
-            results = list(ddgs.text(query, max_results=4))
+            results = list(ddgs.text(query, region="us-en", max_results=5))
     except Exception as exc:  # noqa: BLE001 - network/search errors reported to the agent
-        return f"Web search failed: {exc}"
+        return f"Web search failed ({type(exc).__name__}): {exc}. Try a different query or answer without it."
     if not results:
-        return "No web results found."
+        return f"No web results found for {query!r}. Try a different, more specific query."
     return "\n".join(
         f"- {r.get('title')}: {r.get('body')} ({r.get('href')})" for r in results
     )
@@ -119,30 +142,46 @@ def search_knowledge_base(query: str) -> str:
     return format_context(chunks)
 
 
-TOOLS = [search_knowledge_base, calculator, web_search]
+TOOLS = [search_knowledge_base, calculator, internet_search]
 
-AGENT_SYSTEM_PROMPT = """You are an AML/KYC compliance assistant for a neobank/fintech.
+
+def _build_system_prompt() -> str:
+    """Built fresh per AgentPipeline construction (not a module-level
+    constant) so a long-running process always tells the model today's real
+    date -- without it, the model has no way to know "current" and searched
+    for e.g. "FATF grey list 2024" when asked about today's status."""
+    today = date.today().isoformat()
+    return f"""You are an AML/KYC compliance assistant for a neobank/fintech.
+Today's date is {today}.
 
 You have three tools:
 - search_knowledge_base: for AML/KYC policy, regulation, and compliance questions.
 - calculator: for arithmetic, percentages, or numeric comparisons.
-- web_search: for live or current information not in the static knowledge base
+- internet_search: for live or current information not in the static knowledge base
   (exchange rates, current regulatory list membership, general knowledge, etc.).
+  Use today's date above to judge what "current" or "latest" means -- do not
+  guess or default to a stale year.
 
 For every question, decide whether you can answer directly, or need one or more
 tools. Prefer search_knowledge_base for anything about AML/KYC obligations,
 definitions, or thresholds -- do not answer those from memory, since your own
 knowledge may be outdated or wrong for a specific jurisdiction. Use calculator
-for any arithmetic rather than computing it yourself. Use web_search only for
-information that is live, time-sensitive, or clearly outside the AML/KYC corpus.
+for any arithmetic rather than computing it yourself. Use internet_search only
+for information that is live, time-sensitive, or clearly outside the AML/KYC
+corpus -- and call it AT MOST 2 times for a single question. If two searches
+with different queries haven't found it, stop searching and either answer with
+what you have (saying what's uncertain) or say you don't know; do not keep
+repeating or rephrasing the same search.
 
 If, after using the appropriate tool(s), you still don't have enough information
 to answer confidently, say exactly: "I don't know based on the available
 information." Do not fabricate AML/KYC obligations, thresholds, or deadlines.
 
-When you rely on the knowledge base, cite the source document and page, e.g.
-"(Source: fatf_recommendations_2025.pdf, p. 14)". When you use the calculator or
-web search, make clear in your answer that you did so.
+When you rely on the knowledge base, cite the numbered context chunk(s) with
+plain bracketed numbers matching the [1], [2], ... labels returned by
+search_knowledge_base (e.g. "beneficial owners must be identified [1]"). Do not
+use any other citation format. When you use the calculator or internet_search,
+make clear in your answer that you did so.
 """
 
 
@@ -166,7 +205,7 @@ def build_agent_executor():
     model stops requesting tool calls.
     """
     llm = get_llm()
-    return create_agent(model=llm, tools=TOOLS, system_prompt=AGENT_SYSTEM_PROMPT)
+    return create_agent(model=llm, tools=TOOLS, system_prompt=_build_system_prompt())
 
 
 class AgentPipeline:
@@ -178,7 +217,44 @@ class AgentPipeline:
         self.executor = build_agent_executor()
 
     def answer(self, question: str) -> AgentResult:
-        result = self.executor.invoke({"messages": [{"role": "user", "content": question}]})
+        # Rate-limit (429) retries happen automatically inside the LLM client
+        # itself (see src.rag.LLM_MAX_RETRIES). This loop instead covers
+        # one-off tool-calling glitches (e.g. Groq's 400 tool_use_failed when
+        # a model sends malformed tool arguments) and a hard recursion cap
+        # (AGENT_RECURSION_LIMIT), so one bad question can't crash a whole
+        # batch evaluation run or burn the rate limit on a runaway loop.
+        result = None
+        last_exc: Exception | None = None
+        for attempt in range(1, AGENT_MAX_ATTEMPTS + 1):
+            try:
+                result = self.executor.invoke(
+                    {"messages": [{"role": "user", "content": question}]},
+                    config={"recursion_limit": AGENT_RECURSION_LIMIT},
+                )
+                break
+            except Exception as exc:  # noqa: BLE001 - deliberately broad: any
+                # failure here (bad tool call, recursion limit, transport
+                # error) should degrade to a graceful answer, not crash.
+                last_exc = exc
+                logger.warning(
+                    "Agent invocation failed (attempt %d/%d) for %r: %s",
+                    attempt,
+                    AGENT_MAX_ATTEMPTS,
+                    question,
+                    exc,
+                )
+
+        if result is None:
+            return {
+                "question": question,
+                "answer": (
+                    "I couldn't complete this request due to a tool-calling error "
+                    f"({type(last_exc).__name__ if last_exc else 'unknown'}). "
+                    "Please try rephrasing the question."
+                ),
+                "tool_calls": [],
+            }
+
         messages = result["messages"]
 
         # Match each AIMessage's tool_calls to the ToolMessage that carries
@@ -200,7 +276,7 @@ class AgentPipeline:
                         }
                     )
 
-        final_answer = messages[-1].content
+        final_answer = clean_citations(messages[-1].content)
         return {"question": question, "answer": final_answer, "tool_calls": tool_calls}
 
 

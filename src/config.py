@@ -7,6 +7,7 @@ api) reads settings the same way and it's obvious what needs to be set in
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +16,12 @@ from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
+
+# httpx/huggingface_hub log every HEAD/GET request (e.g. ~40 lines checking the
+# local embedding model's cache on Hugging Face Hub) at INFO level, which
+# drowns out our own logging on every run. WARNING keeps real problems visible.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("huggingface_hub").setLevel(logging.WARNING)
 
 
 @dataclass(frozen=True)
@@ -53,7 +60,31 @@ def get_llm_config() -> LLMConfig:
         provider=provider,
         api_key=api_key_by_provider[provider],
         api_base=api_base_by_provider[provider],
-        model=os.getenv("LLM_MODEL", "llama-3.3-70b-versatile"),
+        # llama-3.3-70b-versatile was decommissioned on Groq; openai/gpt-oss-120b
+        # is a current default. Check console.groq.com for the live model list.
+        model=os.getenv("LLM_MODEL", "openai/gpt-oss-120b"),
+    )
+
+
+def get_eval_llm_config() -> LLMConfig:
+    """Same provider/key/base-url as get_llm_config(), but the model can be
+    overridden via EVAL_LLM_MODEL.
+
+    Useful when the primary chat model's output format breaks RAGAS's
+    JSON-based scoring prompts (observed with some gpt-oss responses) --
+    point EVAL_LLM_MODEL at a different model (e.g. qwen/qwen3.8-27b) to use
+    it only as the RAGAS judge, without changing the model that answers
+    questions.
+    """
+    base = get_llm_config()
+    eval_model = os.getenv("EVAL_LLM_MODEL", "").strip()
+    if not eval_model:
+        return base
+    return LLMConfig(
+        provider=base.provider,
+        api_key=base.api_key,
+        api_base=base.api_base,
+        model=eval_model,
     )
 
 

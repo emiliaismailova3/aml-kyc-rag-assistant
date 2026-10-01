@@ -4,7 +4,7 @@
     "id": "short stable identifier",
     "question": "the question asked to the agent",
     "expected_route": "'tool' if the agent should call a tool (and which one), or 'rag' if it should answer from the knowledge base alone",
-    "expected_tool": "calculator | web_search | null (null for rag-routed scenarios)",
+    "expected_tool": "calculator | internet_search | null (null for rag-routed scenarios)",
     "ground_truth": "reference answer, or reference approach when the exact numeric/live value cannot be pinned down in advance",
     "notes": "why this scenario is expected to route the way it does"
   },
@@ -29,7 +29,7 @@
       "id": "t03",
       "question": "What is the current USD/AZN exchange rate today?",
       "expected_route": "tool",
-      "expected_tool": "web_search",
+      "expected_tool": "internet_search",
       "ground_truth": "A live, time-varying exchange rate that is not contained anywhere in the static AML/KYC document corpus; the agent must use its web-search tool rather than the knowledge base.",
       "notes": "Live/volatile fact absent from the corpus; correct behaviour is a web search, not a knowledge-base answer or a refusal."
     },
@@ -37,7 +37,7 @@
       "id": "t04",
       "question": "Is Azerbaijan currently on the FATF's list of jurisdictions under increased monitoring ('grey list')?",
       "expected_route": "tool",
-      "expected_tool": "web_search",
+      "expected_tool": "internet_search",
       "ground_truth": "FATF's grey list is updated at each Plenary and is not reproduced as a static fact in the 2025 Azerbaijan follow-up report in the knowledge base (that report covers technical-compliance re-ratings only), so this needs a live web search for the current list.",
       "notes": "Distinguishes 'technical compliance re-rating' (in the corpus) from 'grey list status' (not in the corpus, and time-sensitive)."
     },
@@ -45,7 +45,7 @@
       "id": "t05",
       "question": "Who won the 2026 FIFA World Cup?",
       "expected_route": "tool",
-      "expected_tool": "web_search",
+      "expected_tool": "internet_search",
       "ground_truth": "Unrelated to AML/KYC and not contained in the knowledge base at all; the agent should recognize the knowledge base cannot help and fall back to web search (or clearly state it does not know) rather than fabricating an answer from unrelated compliance documents.",
       "notes": "Sanity check that the agent does not force an irrelevant document match onto a completely out-of-domain question."
     },
