@@ -63,7 +63,7 @@ flowchart TD
     API --> UI["src/streamlit_app.py<br/>demo UI"]
 
     subgraph Eval["Evaluation"]
-        EQ["data/eval_questions.json<br/>15 gold Q&A pairs"] --> RAGAS["src/evaluate.py<br/>RAGAS: faithfulness, answer_relevancy,<br/>answer_correctness, context_precision/recall"]
+        EQ["data/eval_questions.json<br/>15 gold Q&A pairs"] --> RAGAS["src/evaluate.py<br/>RAGAS: faithfulness, answer_relevancy,<br/>answer_correctness"]
         R -.-> RAGAS
         AG -.-> RAGAS
         RAGAS --> CMP["data/eval_results/metrics_comparison.md<br/>base RAG vs. agentic"]
@@ -174,17 +174,40 @@ step then only needs to phrase that retrieved passage into a direct answer.
 
 ### RAGAS metrics: base RAG vs. agentic layer
 
+Judge: `openai/gpt-oss-120b` via Groq, same judge for both columns; local
+`bge-small` embeddings; 15 gold questions; `answer_relevancy` uses
+`strictness=1` (see Lessons learned).
+
 | Metric | Base RAG | Agentic (RAG + tools) |
 |---|---|---|
-| faithfulness | *run `python -m src.evaluate` to fill in* | *run `python -m src.evaluate` to fill in* |
-| answer_relevancy | — | — |
-| answer_correctness | — | — |
-| context_precision | — | — |
-| context_recall | — | — |
+| faithfulness | 0.619 | *pending — see below* |
+| answer_relevancy | 0.612 | *pending* |
+| answer_correctness | 0.424 | *pending* |
 
-Once populated, this table is written to
-[`data/eval_results/metrics_comparison.md`](data/eval_results/) by
-`src/evaluate.py` and can be pasted back in here.
+**Base RAG numbers are real measurements** (15/15 questions scored). Read them
+with this in mind: on **5 of the 15 questions (q02, q05, q07, q10, q14) the base
+pipeline answered "I don't know based on the available documents" even though
+the answer is in the corpus** (retrieval with top-k=4 didn't surface the right
+chunk for those questions). RAGAS correctly scores a refusal as 0 for
+faithfulness and relevancy, which pulls both averages down: on the 10 questions
+it actually answered, faithfulness is 0.93 and relevancy 0.92. That is the
+honest picture — the refusal behaviour is safe (no hallucination) but costs
+recall, and improving retrieval (larger k, hybrid search, re-ranking) is the
+obvious next step.
+
+**The agentic column is not filled in yet.** All 15 agent answers were
+generated and cached, but scoring them needs roughly another full pipeline's
+worth of judge tokens and Groq's free-tier daily token quota (200k, a rolling
+window) was already spent on the base-RAG scoring. Scores are cached per
+question, so nothing is lost — once quota has refilled, run:
+
+```bash
+EVAL_LLM_MODEL=openai/gpt-oss-120b python -m src.evaluate --pipeline agent
+```
+
+(use the same judge model as the base-RAG column so the two are comparable;
+on Windows PowerShell set `$env:EVAL_LLM_MODEL="openai/gpt-oss-120b"` first),
+then fill in the right-hand column from `data/eval_results/agent_ragas_results.json`.
 
 ## Lessons learned / debugging notes
 
@@ -237,12 +260,18 @@ against Groq surfaced two more, specific to using a non-OpenAI judge model:
   answers questions.
 
 Separately (not a bug, a capacity constraint worth knowing about): a full
-`--pipeline both` run makes up to 15 questions x 2 pipelines x 5 metrics =
-150 LLM calls, which **exhausted Groq's free-tier daily token quota (200k
-TPD)** partway through evaluating just the first pipeline. Once the daily cap
-is hit, every further call 429s until the next day's reset, and ragas records
-`NaN` for those rather than crashing (`raise_exceptions=False`, the default) --
-so the run finishes, but with gaps for whatever ran out of quota. The
+full evaluation of one pipeline cost roughly 100-200k judge tokens, i.e.
+**all of Groq's free-tier token quota (200k TPD, a rolling window per model)**
+-- with the original five metrics it exhausted the quota before finishing a
+single pipeline, so the two context metrics were dropped and only the three the
+brief asks for are computed. Once the cap is hit, every further call 429s, and
+ragas records `NaN` for those rather than crashing (`raise_exceptions=False`,
+the default). Scoring is therefore done one question at a time with a per-question
+cache (`data/eval_results/*_scores_cache.json`): only fully-scored questions are
+cached, a run stops early after two consecutive questions with no scores, and a
+re-run resumes where it stopped. (Also: `qwen/qwen3.8-27b` is unusable as a
+judge on the free tier -- its 1,000 output-tokens-per-minute cap rejects any
+request asking for `max_tokens=4096`.) The
 evaluator's own retry layer is deliberately capped low (`RunConfig(max_retries=2)`
 rather than ragas's default 10) specifically so hitting this doesn't also
 balloon into dozens of doomed retry attempts per metric on top of the LLM
@@ -301,7 +330,7 @@ Dockerfile, docker-compose.yml, docker/entrypoint.sh
   routes between knowledge-base retrieval, a sandboxed calculator, and live web
   search, with 10 hand-written routing test scenarios.
 - Implemented a RAGAS evaluation framework (faithfulness, answer relevancy, answer
-  correctness, context precision/recall) comparing a base RAG pipeline against an
+  correctness) comparing a base RAG pipeline against an
   agentic one on a 15-question gold set distilled directly from source regulations.
 - Shipped the assistant as a FastAPI backend with SQLite request logging, a Streamlit
   demo UI, and Docker/docker-compose packaging for reproducible local deployment.

@@ -10,7 +10,6 @@ Metrics computed:
   - faithfulness: does the answer avoid claims unsupported by the retrieved context?
   - answer_relevancy: does the answer actually address the question asked?
   - answer_correctness: how close is the answer to the gold ground_truth?
-  - context_precision / context_recall: retrieval quality against the ground truth.
 
 Requires a working LLM_PROVIDER + API key in .env (RAGAS uses the LLM as a
 judge for faithfulness/relevancy/correctness). Local embeddings are reused
@@ -27,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import time
 from pathlib import Path
 from typing import Callable
@@ -43,12 +43,14 @@ RESULTS_DIR = PROJECT_ROOT / "data" / "eval_results"
 # (src.rag.LLM_MAX_RETRIES) once a limit is actually hit.
 INTER_QUESTION_DELAY_SECONDS = 1.0
 
+# The three metrics the project brief asks for. context_precision/context_recall
+# were dropped: each extra metric multiplies the judge-LLM token cost, and with
+# all five a single pipeline consumed an entire free-tier daily quota (200k
+# tokens on Groq) without finishing.
 RAGAS_METRIC_NAMES = [
     "faithfulness",
     "answer_relevancy",
     "answer_correctness",
-    "context_precision",
-    "context_recall",
 ]
 
 
@@ -177,9 +179,9 @@ def _patch_ragas_vertexai_import() -> None:
     sys.modules[module_name] = shim
 
 
-def _run_ragas(samples: list[dict]) -> dict:
-    """Compute RAGAS metrics for a list of {question, answer, contexts,
-    ground_truth} samples.
+def _build_scorer() -> Callable[[dict], dict]:
+    """Build the RAGAS judge/embeddings/metrics once and return
+    score_one(sample) -> {metric_name: float | None}.
 
     Both the judge LLM and the embeddings are explicitly our own configured
     ones (never RAGAS's OpenAI default): the LLM via src.config.get_eval_llm_config()
@@ -188,6 +190,9 @@ def _run_ragas(samples: list[dict]) -> dict:
     gpt-oss, emits output that breaks RAGAS's JSON-based scoring prompts), and
     embeddings via our local sentence-transformers model, so no
     OPENAI_API_KEY is ever required.
+
+    A metric that ragas could not compute (it swallows per-metric errors such
+    as rate limits into NaN rather than raising) comes back as None.
     """
     _patch_ragas_vertexai_import()
 
@@ -195,30 +200,12 @@ def _run_ragas(samples: list[dict]) -> dict:
     from ragas import evaluate
     from ragas.embeddings import LangchainEmbeddingsWrapper
     from ragas.llms import LangchainLLMWrapper
-    from ragas.metrics import (
-        AnswerRelevancy,
-        answer_correctness,
-        context_precision,
-        context_recall,
-        faithfulness,
-    )
+    from ragas.metrics import AnswerRelevancy, answer_correctness, faithfulness
     from ragas.run_config import RunConfig
 
     from src.config import get_eval_llm_config
     from src.rag import get_llm
     from src.vectorstore import get_embeddings
-
-    dataset = Dataset.from_list(
-        [
-            {
-                "question": s["question"],
-                "answer": s["answer"],
-                "contexts": s["contexts"],
-                "ground_truth": s["ground_truth"],
-            }
-            for s in samples
-        ]
-    )
 
     # max_tokens is bumped for the judge: gpt-oss (and other reasoning models)
     # spend part of the output budget on internal reasoning before the final
@@ -232,7 +219,7 @@ def _run_ragas(samples: list[dict]) -> dict:
     # robustness. Groq rejects any n>1 ("'n': number must be at most 1"), so
     # this is pinned to 1 -- a real accuracy/robustness tradeoff (one sampled
     # question instead of three), not a cosmetic workaround.
-    answer_relevancy_n1 = AnswerRelevancy(strictness=1)
+    metrics = [faithfulness, AnswerRelevancy(strictness=1), answer_correctness]
 
     # max_workers=1: run RAGAS's own judge-LLM calls sequentially rather than
     # the default 16-way concurrency, since Groq's free tier rate-limits
@@ -241,18 +228,106 @@ def _run_ragas(samples: list[dict]) -> dict:
     # API call up to LLM_MAX_RETRIES (5) times with backoff, so a high
     # ragas-level retry count on top multiplies into dozens of attempts per
     # metric once a request is genuinely failing (e.g. a daily token-quota
-    # error, which won't resolve within any backoff window) -- that burned
-    # through a free-tier daily quota and ran for over an hour in practice.
-    result = evaluate(
-        dataset,
-        metrics=[faithfulness, answer_relevancy_n1, answer_correctness, context_precision, context_recall],
-        llm=ragas_llm,
-        embeddings=ragas_embeddings,
-        run_config=RunConfig(max_workers=1, max_retries=2, max_wait=30, timeout=120),
-    )
-    return result.to_pandas().to_dict(orient="records"), {
-        name: float(result[name]) for name in RAGAS_METRIC_NAMES if name in result
-    }
+    # error, which won't resolve within any backoff window).
+    run_config = RunConfig(max_workers=1, max_retries=2, max_wait=30, timeout=120)
+
+    def score_one(sample: dict) -> dict:
+        dataset = Dataset.from_list(
+            [
+                {
+                    "question": sample["question"],
+                    "answer": sample["answer"],
+                    "contexts": sample["contexts"],
+                    "ground_truth": sample["ground_truth"],
+                }
+            ]
+        )
+        result = evaluate(
+            dataset,
+            metrics=metrics,
+            llm=ragas_llm,
+            embeddings=ragas_embeddings,
+            run_config=run_config,
+            show_progress=False,
+        )
+        row = result.to_pandas().iloc[0]
+        scores = {}
+        for name in RAGAS_METRIC_NAMES:
+            value = row.get(name)
+            scores[name] = None if value is None or math.isnan(float(value)) else float(value)
+        return scores
+
+    return score_one
+
+
+def _score_samples_with_resume(
+    samples: list[dict], cache_path: Path, max_consecutive_empty: int = 2
+) -> tuple[dict[str, dict], dict[str, dict]]:
+    """Score each sample with RAGAS one at a time, caching every fully-scored
+    question to cache_path so a run cut short (e.g. by a free-tier daily token
+    quota -- a single pipeline can use a whole day's allowance) can be
+    re-run later and only score what's still missing.
+
+    Only questions where *every* metric computed are cached; a question with a
+    missing (NaN) metric is retried on the next run. If several questions in a
+    row come back with no metric at all, the provider is almost certainly
+    refusing requests (quota exhausted), so scoring stops early instead of
+    grinding through doomed retries for every remaining question.
+
+    Returns (complete, incomplete), each mapping question id -> metric scores.
+    """
+    complete: dict[str, dict] = {}
+    if cache_path.exists():
+        with open(cache_path, encoding="utf-8") as f:
+            complete = {row["id"]: row["scores"] for row in json.load(f)}
+        logger.info("Resuming %s: %d questions already scored", cache_path, len(complete))
+
+    todo = [s for s in samples if s["id"] not in complete]
+    incomplete: dict[str, dict] = {}
+    if not todo:
+        return complete, incomplete
+
+    score_one = _build_scorer()
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    consecutive_empty = 0
+    for sample in todo:
+        scores = score_one(sample)
+        if all(v is None for v in scores.values()):
+            consecutive_empty += 1
+            incomplete[sample["id"]] = scores
+            logger.warning("%s: no metric could be computed", sample["id"])
+            if consecutive_empty >= max_consecutive_empty:
+                logger.error(
+                    "%d questions in a row produced no scores -- the LLM provider is "
+                    "likely refusing requests (e.g. daily token quota exhausted). "
+                    "Stopping; %d questions are cached in %s, re-run later to resume.",
+                    consecutive_empty,
+                    len(complete),
+                    cache_path,
+                )
+                break
+            continue
+        consecutive_empty = 0
+        if any(v is None for v in scores.values()):
+            incomplete[sample["id"]] = scores
+            logger.warning("%s: incomplete scores %s -- will be retried next run", sample["id"], scores)
+            continue
+        complete[sample["id"]] = scores
+        with open(cache_path, "w", encoding="utf-8") as f:
+            json.dump([{"id": k, "scores": v} for k, v in complete.items()], f, indent=2)
+        logger.info("scored %s: %s", sample["id"], scores)
+
+    return complete, incomplete
+
+
+def _aggregate(rows: list[dict]) -> dict:
+    """Mean of each metric over the questions where it was computed."""
+    aggregate = {}
+    for name in RAGAS_METRIC_NAMES:
+        values = [r[name] for r in rows if r.get(name) is not None]
+        if values:
+            aggregate[name] = sum(values) / len(values)
+    return aggregate
 
 
 def evaluate_pipeline(pipeline_name: str) -> dict:
@@ -266,14 +341,36 @@ def evaluate_pipeline(pipeline_name: str) -> dict:
     else:
         raise ValueError(f"Unknown pipeline: {pipeline_name!r}")
 
-    per_question, aggregate = _run_ragas(samples)
+    complete, incomplete = _score_samples_with_resume(
+        samples, RESULTS_DIR / f"{pipeline_name}_scores_cache.json"
+    )
+    per_question = [{"id": k, **v} for k, v in complete.items()] + [
+        {"id": k, **v, "incomplete": True} for k, v in incomplete.items()
+    ]
+    aggregate = _aggregate(per_question)
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     output_path = RESULTS_DIR / f"{pipeline_name}_ragas_results.json"
     with open(output_path, "w", encoding="utf-8") as f:
-        json.dump({"per_question": per_question, "aggregate": aggregate}, f, indent=2, ensure_ascii=False)
+        json.dump(
+            {
+                "aggregate": aggregate,
+                "questions_fully_scored": len(complete),
+                "questions_total": len(samples),
+                "per_question": per_question,
+            },
+            f,
+            indent=2,
+            ensure_ascii=False,
+        )
     logger.info("Saved %s RAGAS results to %s", pipeline_name, output_path)
-    logger.info("%s aggregate metrics: %s", pipeline_name, aggregate)
+    logger.info(
+        "%s: %d/%d questions fully scored; aggregate metrics: %s",
+        pipeline_name,
+        len(complete),
+        len(samples),
+        aggregate,
+    )
     return aggregate
 
 
