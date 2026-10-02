@@ -140,6 +140,11 @@ def _collect_agent_samples(questions: list[dict]) -> list[dict]:
 
     def answer_one(item: dict) -> dict:
         result = pipeline.answer(item["question"])
+        if result.get("error"):
+            # The agent's graceful fallback ("I couldn't complete this request")
+            # is not an answer: caching and scoring it would silently poison the
+            # results (this happened when the token quota ran out mid-run).
+            raise RuntimeError(f"agent failed on {item['id']} ({result['error']}); not caching it")
         contexts = [
             call["output"]
             for call in result["tool_calls"]

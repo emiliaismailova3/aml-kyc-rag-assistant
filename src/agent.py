@@ -191,10 +191,14 @@ class ToolCallRecord(TypedDict):
     output: str
 
 
-class AgentResult(TypedDict):
+class AgentResult(TypedDict, total=False):
     question: str
     answer: str
     tool_calls: list[ToolCallRecord]
+    # Set only when every attempt failed and `answer` is a fallback message
+    # rather than a real answer -- batch callers (src.evaluate) must not treat
+    # such a result as a genuine answer.
+    error: str
 
 
 def build_agent_executor():
@@ -253,6 +257,7 @@ class AgentPipeline:
                     "Please try rephrasing the question."
                 ),
                 "tool_calls": [],
+                "error": type(last_exc).__name__ if last_exc else "unknown",
             }
 
         messages = result["messages"]

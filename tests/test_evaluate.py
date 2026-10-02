@@ -60,3 +60,20 @@ def test_stops_early_after_consecutive_empty_scores(monkeypatch, tmp_path):
     complete, incomplete = ev._score_samples_with_resume(_samples(10), tmp_path / "c.json")
     assert complete == {}
     assert calls == ["q0", "q1"], "should give up after 2 questions with no scores, not grind through all 10"
+
+
+def test_failed_agent_answers_are_not_cached(monkeypatch, tmp_path):
+    import pytest
+
+    import src.agent as agent_module
+
+    class FakeAgent:
+        def answer(self, question):
+            return {"question": question, "answer": "I couldn't complete this request", "tool_calls": [], "error": "RateLimitError"}
+
+    monkeypatch.setattr(agent_module, "AgentPipeline", FakeAgent)
+    monkeypatch.setattr(ev, "RESULTS_DIR", tmp_path)
+    questions = [{"id": "q1", "question": "?", "ground_truth": "g"}]
+    with pytest.raises(RuntimeError, match="not caching"):
+        ev._collect_agent_samples(questions)
+    assert not (tmp_path / "agent_samples_cache.json").exists() or json.loads((tmp_path / "agent_samples_cache.json").read_text()) == []

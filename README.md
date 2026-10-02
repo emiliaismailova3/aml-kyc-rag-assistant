@@ -195,11 +195,16 @@ honest picture — the refusal behaviour is safe (no hallucination) but costs
 recall, and improving retrieval (larger k, hybrid search, re-ranking) is the
 obvious next step.
 
-**The agentic column is not filled in yet.** All 15 agent answers were
-generated and cached, but scoring them needs roughly another full pipeline's
-worth of judge tokens and Groq's free-tier daily token quota (200k, a rolling
-window) was already spent on the base-RAG scoring. Scores are cached per
-question, so nothing is lost — once quota has refilled, run:
+**The agentic column is not filled in yet.** An earlier attempt to score the
+agent was invalid and was discarded: Groq's free-tier daily token quota ran out
+while the agent's answers were being generated, the agent's graceful fallback
+message ("I couldn't complete this request") was cached as if it were an answer,
+and scoring it produced meaningless near-zero numbers. That is fixed (a failed
+agent run now raises instead of being cached), but it means the agent's answers
+have to be regenerated (only q01 is a real cached answer) *and* scored -- more
+judge tokens than one free-tier day allows, so expect to run the command below
+on two or three separate days; both answers and scores are cached per question,
+so each run resumes where the previous one stopped:
 
 ```bash
 EVAL_LLM_MODEL=openai/gpt-oss-120b python -m src.evaluate --pipeline agent
