@@ -1,10 +1,33 @@
 # AI Knowledge Assistant — AML/KYC Compliance RAG
 
-A retrieval-augmented generation (RAG) question-answering service over AML/KYC
-(Anti-Money Laundering / Know Your Customer) and financial compliance documents for a
-neobank/fintech, with an agentic tool-calling layer and a RAGAS-based evaluation
-framework. Built as a portfolio project for a Junior AI Applications & AI Agents
-Engineer role.
+![Python](https://img.shields.io/badge/python-3.11%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![LangChain](https://img.shields.io/badge/LangChain-1.x-informational)
+
+Ask a compliance question, get an answer **grounded in real regulatory documents**
+(FATF, Wolfsberg Group, Central Bank of Azerbaijan) with page-level citations --
+or an honest "I don't know" instead of a hallucination. An optional **agent**
+can also use a calculator and live web search, and the whole thing is
+**measured with RAGAS** rather than just demoed.
+
+**At a glance**
+
+- RAG over 16 PDFs (2,176 chunks): local embeddings (no API key), ChromaDB, any
+  OpenAI-compatible LLM (Groq / Together / OpenAI) switchable via `.env`.
+- Tool-calling agent (LangChain/LangGraph) that chooses between knowledge-base
+  search, a sandboxed calculator and web search.
+- FastAPI backend with SQLite request logging, Streamlit UI, Docker files.
+- 40+ automated tests; evaluation with RAGAS (faithfulness, answer relevancy,
+  answer correctness) on a 15-question gold set.
+- Honest results: base RAG scores 0.93 faithfulness / 0.92 relevancy on the
+  questions it answers, but refused 5 of 15 -- see [Results](#ragas-metrics-base-rag-vs-agentic-layer)
+  for the diagnosis and the fix.
+
+**Run it in 3 commands** (details in [Quickstart](#quickstart)):
+
+```bash
+pip install -r requirements.txt && cp .env.example .env   # add your GROQ_API_KEY
+python -m src.vectorstore                                  # build the index once
+streamlit run src/streamlit_app.py                         # (with `uvicorn src.api:app` running)
+```
 
 ## What this is
 
@@ -135,24 +158,24 @@ are also available. If a model's output ever breaks RAGAS's scoring (see
 below), point `EVAL_LLM_MODEL` at a different model just for the judge,
 without changing which model answers questions.
 
-## What's been run for real vs. what needs your API key
+## What has been verified
 
-Everything through retrieval was built and verified against the real 16-document
-corpus in this environment: ingestion (2,176 chunks), embeddings + Chroma indexing,
-and a 7-query retrieval smoke test (all passing — see
-[`tests/test_retrieval.py`](tests/test_retrieval.py)). The full test suite (25 tests
-across ingestion, retrieval, the agent's tools, and the API contract) passes without
-requiring any API key, since the LLM call is the one piece that genuinely can't run
-without one.
+- **Automated tests (40+):** ingestion, retrieval quality (7 queries, the right
+  document in the top 3 every time), the agent's calculator (including rejection
+  of code-injection attempts) and knowledge-base tool, the API contract, and the
+  evaluation's caching/resume logic. They need no API key; CI runs them on every push.
+- **Run against a real LLM (Groq, `openai/gpt-oss-120b`):** question answering with
+  citations, refusal on out-of-scope questions, the agent's calculator and web-search
+  routing, and the RAGAS evaluation of the base pipeline (results below).
+- **Not verified:** the Docker setup (written and syntax-checked, but Docker wasn't
+  available where this was built), and the RAGAS scores of the agentic pipeline
+  (pending free-tier token quota -- see below).
 
-**No LLM API key was available in the environment this was built in**, so end-to-end
-answer generation, the agent's live tool-routing decisions, and the RAGAS metrics
-below have not been executed here — the code is real and complete (no stubs), but
-those specific numbers need you to add a key and run:
+Reproduce the evaluation:
 
 ```bash
-python -m src.rag --run-eval           # answers all 15 gold questions, saves results
-python -m src.evaluate --pipeline both  # computes RAGAS metrics, writes the table below
+python -m src.rag --run-eval              # answer the 15 gold questions
+python -m src.evaluate --pipeline rag     # score them with RAGAS (resumable)
 ```
 
 ### Example: retrieval in action (no LLM key needed)
