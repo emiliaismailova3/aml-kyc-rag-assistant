@@ -54,7 +54,7 @@ def get_agent_pipeline() -> AgentPipeline:
 
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, description="The compliance question to ask")
-    top_k: int = Field(4, ge=1, le=10, description="Number of chunks to retrieve")
+    top_k: int = Field(8, ge=1, le=12, description="Number of chunks to retrieve")
 
 
 class SourceRef(BaseModel):

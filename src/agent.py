@@ -136,7 +136,7 @@ def search_knowledge_base(query: str) -> str:
     excerpts, each labeled with its source document and page number.
     """
     store = load_vectorstore()
-    chunks = store.similarity_search(query, k=4)
+    chunks = store.similarity_search(query, k=8)
     if not chunks:
         return "No relevant documents found in the knowledge base."
     return format_context(chunks)

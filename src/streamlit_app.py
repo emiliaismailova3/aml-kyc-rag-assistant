@@ -29,7 +29,7 @@ use_agent = st.sidebar.toggle(
     help="When on, the assistant can also use a calculator or web search, "
     "not just the document knowledge base.",
 )
-top_k = st.sidebar.slider("Chunks to retrieve (top-k)", min_value=1, max_value=10, value=4)
+top_k = st.sidebar.slider("Chunks to retrieve (top-k)", min_value=1, max_value=12, value=8)
 
 with st.sidebar:
     st.markdown("---")

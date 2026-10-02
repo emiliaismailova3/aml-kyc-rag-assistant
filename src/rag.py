@@ -31,7 +31,10 @@ from src.vectorstore import load_vectorstore
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_TOP_K = 4
+# 8 rather than 4: with 4, the chunk holding the answer often ranked 5th-8th
+# (measured: the FATF CDD-measures passage ranks 8th for its question) and the
+# model correctly refused for lack of context -- 5 of 15 gold questions.
+DEFAULT_TOP_K = 8
 
 # The exact refusal phrase the system prompt instructs the model to use.
 # Checked as a prefix (case-insensitive) since models occasionally vary

@@ -1,0 +1,19 @@
+name: tests
+
+on: [push, pull_request]
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      # Build the vector index so the retrieval/agent-tool tests have a real
+      # store to query (local embeddings, no API key needed).
+      - run: python -m src.vectorstore
+      # No LLM key in CI: the tests that need a live model/web are deselected.
+      - run: pytest -q -k "not internet_search"

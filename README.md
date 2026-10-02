@@ -178,7 +178,7 @@ Judge: `openai/gpt-oss-120b` via Groq, same judge for both columns; local
 `bge-small` embeddings; 15 gold questions; `answer_relevancy` uses
 `strictness=1` (see Lessons learned).
 
-| Metric | Base RAG | Agentic (RAG + tools) |
+| Metric | Base RAG (top-k=4) | Agentic (RAG + tools) |
 |---|---|---|
 | faithfulness | 0.619 | *pending — see below* |
 | answer_relevancy | 0.612 | *pending* |
@@ -187,13 +187,26 @@ Judge: `openai/gpt-oss-120b` via Groq, same judge for both columns; local
 **Base RAG numbers are real measurements** (15/15 questions scored). Read them
 with this in mind: on **5 of the 15 questions (q02, q05, q07, q10, q14) the base
 pipeline answered "I don't know based on the available documents" even though
-the answer is in the corpus** (retrieval with top-k=4 didn't surface the right
+the answer is in the corpus** (with top-k=4, the baseline measured here, retrieval didn't surface the right
 chunk for those questions). RAGAS correctly scores a refusal as 0 for
 faithfulness and relevancy, which pulls both averages down: on the 10 questions
 it actually answered, faithfulness is 0.93 and relevancy 0.92. That is the
 honest picture — the refusal behaviour is safe (no hallucination) but costs
 recall, and improving retrieval (larger k, hybrid search, re-ranking) is the
 obvious next step.
+
+**Follow-up fix, not yet re-measured.** Diagnosing those refusals showed the
+right *document* was already ranked first for every question, but the specific
+passage holding the answer often sat just outside the top 4 chunks (e.g. the FATF
+CDD-measures passage ranks 8th for its question). Raising the default to
+**top-k=8** made the base pipeline answer the CDD question (q02) and the PEP
+close-family question (q05) that it previously refused; q07 and q10 still
+refuse (q10's answer passage doesn't surface in the top 20 at all -- likely a
+chunking/extraction issue with that PDF's text). The table above is the k=4
+baseline; re-running `python -m src.evaluate --pipeline rag` will give the k=8
+numbers once free-tier token quota allows (delete
+`data/eval_results/rag_samples_cache.json` and `rag_scores_cache.json` first).
+This was a spot check on the five failing questions, not a full re-evaluation.
 
 **The agentic column is not filled in yet.** An earlier attempt to score the
 agent was invalid and was discarded: Groq's free-tier daily token quota ran out
