@@ -140,7 +140,11 @@ def _collect_agent_samples(questions: list[dict]) -> list[dict]:
 
     def answer_one(item: dict) -> dict:
         result = pipeline.answer(item["question"])
-        if result.get("error"):
+        # GraphRecursionError means the agent looped until its step cap without
+        # answering -- genuine agent behaviour, recorded as-is and scored (it
+        # will score ~0). Anything else (rate limits, transport errors) is
+        # transient and must not be cached as an answer.
+        if result.get("error") and result["error"] != "GraphRecursionError":
             # The agent's graceful fallback ("I couldn't complete this request")
             # is not an answer: caching and scoring it would silently poison the
             # results (this happened when the token quota ran out mid-run).

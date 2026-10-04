@@ -31,6 +31,7 @@ from ddgs import DDGS
 from langchain.agents import create_agent
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import tool
+from langgraph.errors import GraphRecursionError
 
 from src.rag import clean_citations, format_context, get_llm
 from src.vectorstore import load_vectorstore
@@ -240,6 +241,11 @@ class AgentPipeline:
                 # failure here (bad tool call, recursion limit, transport
                 # error) should degrade to a graceful answer, not crash.
                 last_exc = exc
+                if isinstance(exc, GraphRecursionError):
+                    # The agent looped until the step cap: a real outcome, not a
+                    # transient glitch, so retrying would just repeat the loop.
+                    logger.warning("Agent hit the step limit for %r", question)
+                    break
                 logger.warning(
                     "Agent invocation failed (attempt %d/%d) for %r: %s",
                     attempt,

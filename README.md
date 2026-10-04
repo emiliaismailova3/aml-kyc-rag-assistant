@@ -237,10 +237,13 @@ while the agent's answers were being generated, the agent's graceful fallback
 message ("I couldn't complete this request") was cached as if it were an answer,
 and scoring it produced meaningless near-zero numbers. That is fixed (a failed
 agent run now raises instead of being cached), but it means the agent's answers
-have to be regenerated (only q01 is a real cached answer) *and* scored -- more
-judge tokens than one free-tier day allows, so expect to run the command below
-on two or three separate days; both answers and scores are cached per question,
-so each run resumes where the previous one stopped:
+have to be regenerated and then scored. Progress so far: all 15 agent answers
+are generated and cached (one of them -- q10, the "3 business days" question --
+made the agent loop until its 10-step cap, which is recorded as a real
+non-answer), but only 1 of 15 has been scored by the judge before the free-tier
+quota ran out again. Both answers and scores are cached per question, so each
+run resumes where the previous one stopped; expect a few more runs over a day
+or two:
 
 ```bash
 EVAL_LLM_MODEL=openai/gpt-oss-120b python -m src.evaluate --pipeline agent

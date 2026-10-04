@@ -77,3 +77,17 @@ def test_failed_agent_answers_are_not_cached(monkeypatch, tmp_path):
     with pytest.raises(RuntimeError, match="not caching"):
         ev._collect_agent_samples(questions)
     assert not (tmp_path / "agent_samples_cache.json").exists() or json.loads((tmp_path / "agent_samples_cache.json").read_text()) == []
+
+
+def test_agent_step_limit_is_recorded_as_a_real_result(monkeypatch, tmp_path):
+    import src.agent as agent_module
+
+    class LoopingAgent:
+        def answer(self, question):
+            return {"question": question, "answer": "I couldn't complete this request", "tool_calls": [], "error": "GraphRecursionError"}
+
+    monkeypatch.setattr(agent_module, "AgentPipeline", LoopingAgent)
+    monkeypatch.setattr(ev, "RESULTS_DIR", tmp_path)
+    monkeypatch.setattr(ev, "INTER_QUESTION_DELAY_SECONDS", 0)
+    samples = ev._collect_agent_samples([{"id": "q1", "question": "?", "ground_truth": "g"}])
+    assert [s["id"] for s in samples] == ["q1"]
