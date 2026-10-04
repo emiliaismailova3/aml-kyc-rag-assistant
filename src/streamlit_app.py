@@ -129,7 +129,9 @@ with st.sidebar:
     )
     st.slider(
         "Passages to retrieve", min_value=1, max_value=12, value=8, key="top_k",
-        help="How many document passages are given to the model as context.",
+        help="How many document passages are given to the model as context. "
+        "Only used in Knowledge base mode: the agent picks its own search depth.",
+        disabled=st.session_state.get("use_agent", False),
     )
     if st.button("🗑 Clear conversation", use_container_width=True):
         st.session_state.history = []

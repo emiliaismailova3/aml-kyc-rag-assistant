@@ -64,3 +64,10 @@ def test_api_unreachable_shows_error_instead_of_crashing():
 
     assert not app.exception
     assert any("Could not reach the API" in e.value for e in app.error)
+
+
+def test_passages_slider_is_disabled_in_agent_mode():
+    app = AppTest.from_file(APP, default_timeout=30).run()
+    assert not app.slider[0].disabled
+    app.toggle[0].set_value(True).run()
+    assert app.slider[0].disabled
