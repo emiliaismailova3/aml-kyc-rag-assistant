@@ -58,3 +58,18 @@ def test_ask_logs_to_sqlite(monkeypatch, tmp_path):
     client.post("/ask", json={"question": "What is beneficial ownership?"})
     assert logged["pipeline"] == "rag"
     assert logged["question"] == "What is beneficial ownership?"
+
+
+def test_rate_limit_from_llm_provider_returns_clear_429(monkeypatch):
+    import httpx
+    from openai import RateLimitError
+
+    class QuotaPipeline:
+        def answer(self, question, k=4):
+            response = httpx.Response(429, request=httpx.Request("POST", "https://api.example/chat"))
+            raise RateLimitError("quota", response=response, body=None)
+
+    monkeypatch.setattr(api_module, "_pipeline", QuotaPipeline())
+    response = client.post("/ask", json={"question": "anything"})
+    assert response.status_code == 429
+    assert "quota" in response.json()["detail"].lower()

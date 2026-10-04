@@ -101,7 +101,10 @@ def run_question(question: str) -> None:
         with st.spinner("Searching the documents and writing an answer…"):
             data = ask_api(question, use_agent, top_k)
     except requests.exceptions.HTTPError as exc:
-        detail = exc.response.json().get("detail", str(exc)) if exc.response is not None else str(exc)
+        try:
+            detail = exc.response.json().get("detail", str(exc))
+        except (ValueError, AttributeError):
+            detail = str(exc)
         st.session_state.history.append({"role": "error", "text": f"The API returned an error: {detail}"})
     except requests.exceptions.RequestException as exc:
         st.session_state.history.append({"role": "error", "text": f"Could not reach the API at {API_URL}: {exc}"})

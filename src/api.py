@@ -15,6 +15,7 @@ import logging
 import time
 
 from fastapi import FastAPI, HTTPException
+from openai import APIError, RateLimitError
 from pydantic import BaseModel, Field
 
 from src.agent import AgentPipeline
@@ -75,6 +76,17 @@ class AskResponse(BaseModel):
     latency_ms: float
 
 
+def _llm_http_error(exc: Exception) -> HTTPException:
+    """Map failures of the LLM provider to a clear JSON error instead of a bare 500."""
+    if isinstance(exc, RateLimitError):
+        return HTTPException(
+            status_code=429,
+            detail="The LLM provider's rate limit or daily token quota has been reached. "
+            "Please try again later.",
+        )
+    return HTTPException(status_code=502, detail=f"The LLM provider returned an error: {exc}")
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
@@ -90,6 +102,8 @@ def ask(request: AskRequest) -> AskResponse:
         # Raised by src.rag.get_llm() when no API key is configured -- surface
         # that as a clear 503 rather than a generic 500.
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except APIError as exc:
+        raise _llm_http_error(exc) from exc
     latency_ms = (time.perf_counter() - start) * 1000
 
     log_request(
@@ -114,6 +128,17 @@ def ask_agent(request: AskRequest) -> AskResponse:
         result = pipeline.answer(request.question)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except APIError as exc:
+        raise _llm_http_error(exc) from exc
+    # The agent swallows provider errors into a fallback message; surface a
+    # transient one as an error instead of a fake 200 answer. A step-limit loop
+    # (GraphRecursionError) is real agent behaviour and is returned as-is.
+    if result.get("error") and result["error"] != "GraphRecursionError":
+        raise HTTPException(
+            status_code=429 if "RateLimit" in result["error"] else 502,
+            detail="The agent could not reach the LLM provider "
+            f"({result['error']}); the daily token quota may be exhausted. Please try again later.",
+        )
     latency_ms = (time.perf_counter() - start) * 1000
 
     log_request(
