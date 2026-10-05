@@ -1,74 +1,76 @@
 # AI Knowledge Assistant — AML/KYC Compliance RAG
 
-![Python](https://img.shields.io/badge/python-3.11%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![LangChain](https://img.shields.io/badge/LangChain-1.x-informational)
+[![tests](https://github.com/emiliaismailova3/aml-kyc-rag-assistant/actions/workflows/tests.yml/badge.svg)](https://github.com/emiliaismailova3/aml-kyc-rag-assistant/actions/workflows/tests.yml)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![LangChain](https://img.shields.io/badge/LangChain-1.x-informational)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-Ask a compliance question, get an answer **grounded in real regulatory documents**
-(FATF, Wolfsberg Group, Central Bank of Azerbaijan) with page-level citations --
-or an honest "I don't know" instead of a hallucination. An optional **agent**
-can also use a calculator and live web search, and the whole thing is
-**measured with RAGAS** rather than just demoed.
+Ask a compliance question and get an answer **grounded in real regulatory documents**
+(FATF, Wolfsberg Group, Central Bank of Azerbaijan), with every claim linked to a
+numbered source and page. When the documents don't contain the answer, it says
+"I don't know" instead of making one up. An optional **agent** can also use a
+calculator and live web search, and quality is **measured with RAGAS**, not just demoed.
 
-![Demo: a question answered from the documents with sources, then the agent using a calculator](docs/demo.gif)
+![Demo: a question answered from the documents with numbered sources, then the agent using a calculator](docs/demo.gif)
 
-*A question answered from the indexed documents with page-level sources, then agent mode calling the calculator.*
+## At a glance
 
-**At a glance**
+- **RAG over 16 regulatory PDFs** (2,176 chunks) with local embeddings (no API key),
+  ChromaDB, and any OpenAI-compatible LLM (Groq / Together / OpenAI) chosen in `.env`.
+- **Citation-linked answers**: `[3]` in the answer maps to the `[3] file.pdf · p.12`
+  source chip; only passages the answer actually cites are shown.
+- **Tool-calling agent** (LangChain / LangGraph) that chooses between knowledge-base
+  search, a sandboxed calculator and web search, with a step limit against loops.
+- **FastAPI** backend with SQLite request logging, **Streamlit** UI, **Docker Compose**.
+- **59 automated tests + lint + Docker smoke test** in CI on every push.
+- **RAGAS evaluation** (faithfulness, answer relevancy, answer correctness) on a
+  15-question gold set, with the failure cases diagnosed — see [Results](#results).
 
-- RAG over 16 PDFs (2,176 chunks): local embeddings (no API key), ChromaDB, any
-  OpenAI-compatible LLM (Groq / Together / OpenAI) switchable via `.env`.
-- Tool-calling agent (LangChain/LangGraph) that chooses between knowledge-base
-  search, a sandboxed calculator and web search.
-- FastAPI backend with SQLite request logging, Streamlit UI, Docker files.
-- 40+ automated tests; evaluation with RAGAS (faithfulness, answer relevancy,
-  answer correctness) on a 15-question gold set.
-- Honest results: base RAG scores 0.93 faithfulness / 0.92 relevancy on the
-  questions it answers, but refused 5 of 15 -- see [Results](#ragas-metrics-base-rag-vs-agentic-layer)
-  for the diagnosis and the fix.
-
-**Run it in 3 commands** (details in [Quickstart](#quickstart)):
+## Quickstart
 
 ```bash
-pip install -r requirements.txt && cp .env.example .env   # add your GROQ_API_KEY
-python -m src.vectorstore                                  # build the index once
-streamlit run src/streamlit_app.py                         # (with `uvicorn src.api:app` running)
+python -m venv .venv && source .venv/bin/activate   # .venv\Scripts\activate on Windows
+pip install -r requirements.txt
+cp .env.example .env            # add a free GROQ_API_KEY (see below)
+python -m src.vectorstore       # build the index once (a few minutes on CPU)
 ```
+
+Then either ask from the command line:
+
+```bash
+python -m src.rag "What does beneficial ownership mean?"
+python -m src.rag --retrieve-only "What does beneficial ownership mean?"   # no API key needed
+python -m src.agent "What's 450 times 37?"
+```
+
+or start the API and the UI (two terminals):
+
+```bash
+uvicorn src.api:app            # API at http://localhost:8000, docs at /docs
+streamlit run src/streamlit_app.py   # UI at http://localhost:8501
+```
+
+**With Docker** (builds the index automatically on first start):
+
+```bash
+cp .env.example .env            # add your API key
+docker compose up --build       # API on :8000, UI on :8501
+```
+
+**Getting a free LLM key.** The default provider is Groq: create an account at
+[console.groq.com](https://console.groq.com), create a key under *API Keys*, and put it
+in `.env` as `GROQ_API_KEY=...`. Together AI and OpenAI also work — change
+`LLM_PROVIDER`, the matching `*_API_KEY` and `LLM_MODEL` (see `.env.example`).
+Providers retire models over time; if you get `404 model_not_found`, pick a current
+model from your provider's list and set `LLM_MODEL`.
 
 ## Screenshots
 
-| Answer with page-level sources | Honest refusal (no sources) | Agent mode (tool call visible) |
+| Answer with page-level sources | Honest refusal | Agent mode (tool call visible) |
 |---|---|---|
 | ![Answer with sources](docs/screenshot-answer.png) | ![Refusal](docs/screenshot-refusal.png) | ![Agent calling the calculator](docs/screenshot-agent.png) |
 
-## What this is
-
-- A **document corpus** of 16 real regulatory PDFs (FATF, the Wolfsberg Group, the
-  Central Bank of Azerbaijan, and Azerbaijan's AML/CFT statute) — see
-  [`data/raw/SOURCES.md`](data/raw/SOURCES.md).
-- A **RAG pipeline** ([`src/rag.py`](src/rag.py)) that retrieves the most relevant
-  chunks from a Chroma vector store and answers strictly from that context, refusing
-  to answer (rather than hallucinating) when the context is insufficient.
-- An **agentic layer** ([`src/agent.py`](src/agent.py)) that decides, per question,
-  whether to consult the knowledge base, use a calculator, use live web search, or
-  admit it doesn't know — rather than always doing retrieval-then-generate.
-- A **FastAPI backend** ([`src/api.py`](src/api.py)) exposing both pipelines behind
-  `POST /ask` and `POST /ask_agent`, with every request logged to SQLite.
-- A **Streamlit demo UI** ([`src/streamlit_app.py`](src/streamlit_app.py)).
-- A **RAGAS evaluation** ([`src/evaluate.py`](src/evaluate.py)) comparing the base RAG
-  pipeline against the agentic one on the same 15-question gold set.
-- **Docker** packaging for both services (`Dockerfile` + `docker-compose.yml`).
-
-## Domain & corpus
-
-16 PDF documents (~11 MB) covering AML/KYC for a neobank operating in relation to
-Azerbaijan: the FATF Recommendations, FATF's 2025 Azerbaijan follow-up report and
-beneficial-ownership guidance, 8 Wolfsberg Group guidance/FAQ documents (PEPs,
-beneficial ownership, source of wealth/funds, sanctions screening, digital customer
-lifecycle, correspondent banking, payment transparency, risk-based approach), and 5
-CBAR/Azerbaijani-law documents (the core AML/CFT statute, the Law on Banks, and
-payment/e-money institution regulation). Full list with source URLs and retrieval
-notes: [`data/raw/SOURCES.md`](data/raw/SOURCES.md).
-
-## Architecture
+## How it works
 
 ```mermaid
 flowchart TD
@@ -103,295 +105,107 @@ flowchart TD
     end
 ```
 
-## Quickstart
+- **Ingestion** ([`src/ingest.py`](src/ingest.py)): every PDF page is split into
+  ~700-character chunks (100 overlap); each chunk keeps its file name, page number and
+  a stable `chunk_id`, so any answer can be traced back to *file, page N*.
+- **Base RAG** ([`src/rag.py`](src/rag.py)): retrieves the top 8 chunks, numbers them
+  `[1]…[8]` in the prompt, and instructs the model to answer only from them, cite by
+  number, or reply exactly *"I don't know based on the available documents."*
+  The cited numbers are then mapped back to their documents.
+- **Agent** ([`src/agent.py`](src/agent.py)): decides per question whether to search
+  the knowledge base, use the calculator (an `ast`-based evaluator — no `eval`, capped
+  exponents), search the web, or admit it doesn't know. Today's date is injected so
+  "latest" means today; the model is told to stop after 2 web searches, and a hard
+  step limit ends any loop that ignores that.
+- **API** ([`src/api.py`](src/api.py)): `POST /ask` and `POST /ask_agent` with the same
+  response shape; provider rate limits come back as a clear `429`, not a bare `500`.
 
-### 1. Local (Python)
+## Results
 
-```bash
-python -m venv .venv
-source .venv/bin/activate       # .venv\Scripts\activate on Windows
-pip install -r requirements.txt
-cp .env.example .env            # then fill in an LLM API key (see below)
-```
+RAGAS on the 15-question gold set ([`data/eval_questions.json`](data/eval_questions.json));
+judge `openai/gpt-oss-120b` via Groq, local `bge-small` embeddings.
 
-Build the vector index once (takes a few minutes on first run — it downloads the
-local embedding model and embeds ~2,200 chunks on CPU):
-
-```bash
-python -m src.vectorstore
-```
-
-Ask a question from the command line:
-
-```bash
-python -m src.rag "What does beneficial ownership mean?"
-python -m src.agent "What's 450 times 37?"
-```
-
-Or run the API + UI:
-
-```bash
-uvicorn src.api:app --reload &
-streamlit run src/streamlit_app.py
-```
-
-### 2. Docker
-
-```bash
-cp .env.example .env   # fill in an LLM API key first
-docker compose up --build
-```
-
-The API is at `http://localhost:8000` (docs at `/docs`), the UI at
-`http://localhost:8501`. The Chroma index is built automatically on first container
-start if `data/chroma_db/` is empty.
-
-### Getting an LLM API key
-
-The project defaults to **Groq** (`LLM_PROVIDER=groq` in `.env.example`), which has a
-free tier with an OpenAI-compatible API — no other code changes needed:
-
-1. Create a free account at [console.groq.com](https://console.groq.com).
-2. Create an API key under **API Keys**.
-3. Put it in `.env` as `GROQ_API_KEY=...`.
-
-Together AI and OpenAI both work too — just change `LLM_PROVIDER`, the matching
-`*_API_KEY`, and `LLM_MODEL` in `.env` (see the comments in `.env.example`).
-**Embeddings need no key at all** by default (`EMBEDDING_PROVIDER=local`, a
-sentence-transformers model that runs on CPU).
-
-Groq retires/renames chat models over time, so `LLM_MODEL` may need updating —
-if you get a `404 model_not_found`, check your account's current model list at
-console.groq.com and update `LLM_MODEL` in `.env`. As of writing this project
-defaults to `openai/gpt-oss-120b`; `openai/gpt-oss-20b` and `qwen/qwen3.8-27b`
-are also available. If a model's output ever breaks RAGAS's scoring (see
-below), point `EVAL_LLM_MODEL` at a different model just for the judge,
-without changing which model answers questions.
-
-## What has been verified
-
-- **Automated tests (40+):** ingestion, retrieval quality (7 queries, the right
-  document in the top 3 every time), the agent's calculator (including rejection
-  of code-injection attempts) and knowledge-base tool, the API contract, and the
-  evaluation's caching/resume logic. They need no API key; CI runs them on every push.
-- **Run against a real LLM (Groq, `openai/gpt-oss-120b`):** question answering with
-  citations, refusal on out-of-scope questions, the agent's calculator and web-search
-  routing, and the RAGAS evaluation of the base pipeline (results below).
-- **Not verified:** the Docker setup (written and syntax-checked, but Docker wasn't
-  available where this was built), and the RAGAS scores of the agentic pipeline
-  (pending free-tier token quota -- see below).
-
-Reproduce the evaluation:
-
-```bash
-python -m src.rag --run-eval              # answer the 15 gold questions
-python -m src.evaluate --pipeline rag     # score them with RAGAS (resumable)
-```
-
-### Example: retrieval in action (no LLM key needed)
-
-```
-$ python -m src.rag "What does beneficial ownership mean for AML purposes?"
-```
-retrieves, as the top chunk:
-
-> [1] (Source: wolfsberg_faqs_beneficial_ownership.pdf, p. 1)
-> "...beneficial ownership...is conventionally understood as equating to ultimate
-> control over funds in such account, whether through ownership or other means.
-> 'Control' in this sense is to be distinguished from mere signature authority or
-> legal title..."
-
-which is exactly the passage the gold answer for this question
-([`data/eval_questions.json`](data/eval_questions.json):`q01`) is based on — the LLM
-step then only needs to phrase that retrieved passage into a direct answer.
-
-### RAGAS metrics: base RAG vs. agentic layer
-
-Judge: `openai/gpt-oss-120b` via Groq, same judge for both columns; local
-`bge-small` embeddings; 15 gold questions; `answer_relevancy` uses
-`strictness=1` (see Lessons learned).
-
-| Metric | Base RAG (top-k=4) | Agentic (RAG + tools) |
+| Metric | Base RAG, top-k=4 (all 15 questions) | Base RAG, top-k=4 (10 answered) |
 |---|---|---|
-| faithfulness | 0.619 | *pending — see below* |
-| answer_relevancy | 0.612 | *pending* |
-| answer_correctness | 0.424 | *pending* |
+| faithfulness | 0.619 | 0.93 |
+| answer_relevancy | 0.612 | 0.92 |
+| answer_correctness | 0.424 | — |
 
-**Base RAG numbers are real measurements** (15/15 questions scored). Read them
-with this in mind: on **5 of the 15 questions (q02, q05, q07, q10, q14) the base
-pipeline answered "I don't know based on the available documents" even though
-the answer is in the corpus** (with top-k=4, the baseline measured here, retrieval didn't surface the right
-chunk for those questions). RAGAS correctly scores a refusal as 0 for
-faithfulness and relevancy, which pulls both averages down: on the 10 questions
-it actually answered, faithfulness is 0.93 and relevancy 0.92. That is the
-honest picture — the refusal behaviour is safe (no hallucination) but costs
-recall, and improving retrieval (larger k, hybrid search, re-ranking) is the
-obvious next step.
+**What the numbers say.** When the pipeline answers, the answer is almost always
+supported by the retrieved text (0.93 faithfulness). The weak spot is **recall**: it
+refused 5 of 15 questions whose answers *are* in the corpus, and RAGAS scores a
+refusal as 0, which pulls the overall averages down.
 
-**Follow-up fix, not yet re-measured.** Diagnosing those refusals showed the
-right *document* was already ranked first for every question, but the specific
-passage holding the answer often sat just outside the top 4 chunks (e.g. the FATF
-CDD-measures passage ranks 8th for its question). Raising the default to
-**top-k=8** made the base pipeline answer the CDD question (q02) and the PEP
-close-family question (q05) that it previously refused; q07 and q10 still
-refuse (q10's answer passage doesn't surface in the top 20 at all -- likely a
-chunking/extraction issue with that PDF's text). The table above is the k=4
-baseline; re-running `python -m src.evaluate --pipeline rag` will give the k=8
-numbers once free-tier token quota allows (delete
-`data/eval_results/rag_samples_cache.json` and `rag_scores_cache.json` first).
-This was a spot check on the five failing questions, not a full re-evaluation.
+**Diagnosis and fix.** For every refused question the right *document* ranked first,
+but the passage with the answer sat just below the top 4 chunks (e.g. the FATF CDD
+passage ranked 8th). Raising the default to **top-k=8** fixed 2 of the 5 refusals in a
+spot check (q02, q05). One question (q10) never surfaces its passage in the top 20,
+which points to a PDF text-extraction issue rather than ranking.
 
-**The agentic column is not filled in yet.** An earlier attempt to score the
-agent was invalid and was discarded: Groq's free-tier daily token quota ran out
-while the agent's answers were being generated, the agent's graceful fallback
-message ("I couldn't complete this request") was cached as if it were an answer,
-and scoring it produced meaningless near-zero numbers. That is fixed (a failed
-agent run now raises instead of being cached), but it means the agent's answers
-have to be regenerated and then scored. Progress so far: all 15 agent answers
-are generated and cached (one of them -- q10, the "3 business days" question --
-made the agent loop until its 10-step cap, which is recorded as a real
-non-answer), but only 1 of 15 has been scored by the judge before the free-tier
-quota ran out again. Both answers and scores are cached per question, so each
-run resumes where the previous one stopped; expect a few more runs over a day
-or two:
+**Next steps:** re-score base RAG at k=8 and score the agentic pipeline on the same
+set (`python -m src.evaluate --pipeline both`; the run is resumable because Groq's free
+tier allows roughly one pipeline per day), then try hybrid BM25 + vector search and a
+re-ranker for the remaining misses. Engineering notes from the evaluation, including
+Groq-specific RAGAS issues, are in [`docs/NOTES.md`](docs/NOTES.md).
+
+## Testing
 
 ```bash
-EVAL_LLM_MODEL=openai/gpt-oss-120b python -m src.evaluate --pipeline agent
+python -m src.vectorstore        # retrieval tests query the real index
+pytest -k "not internet_search"  # 59 tests; no LLM key needed (LLM calls are mocked)
+ruff check src tests
 ```
 
-(use the same judge model as the base-RAG column so the two are comparable;
-on Windows PowerShell set `$env:EVAL_LLM_MODEL="openai/gpt-oss-120b"` first),
-then fill in the right-hand column from `data/eval_results/agent_ragas_results.json`.
+CI ([`.github/workflows/tests.yml`](.github/workflows/tests.yml)) runs the tests and
+lint, then builds the Docker image and boots API + UI with `docker compose up --wait`
+and checks both health endpoints.
 
-## Lessons learned / debugging notes
-
-Running this against a real Groq key (rather than just importing against mocks)
-surfaced a few issues that are worth noting for anyone hitting the same thing:
-
-- **Decommissioned default model.** The original default, `llama-3.3-70b-versatile`,
-  returned `404 model_not_found` on Groq. Provider-hosted "serverless" model
-  catalogs change over time independently of this repo's code — if a model
-  disappears, check the provider's current list and update `LLM_MODEL` in
-  `.env` (and the default in `src/config.py` if it should change for everyone).
-- **Tool-name collision with a model's own built-in tools.** With the web-search
-  tool named `web_search`, `openai/gpt-oss-120b` called it with arguments shaped
-  like `{"cursor": 2, "id": 0}` — the schema of gpt-oss's *own* built-in browsing
-  tool, not ours — causing Groq to reject the call (`400 tool_use_failed`).
-  Renaming it to `internet_search` and explicitly documenting in the tool's
-  docstring that it takes a single plain `query: str` argument (not structured
-  browser-style arguments) fixed it. Lesson: a tool name/shape that happens to
-  match a model's own built-in tool can get silently confused with it.
-- **`duckduckgo_search` → `ddgs`.** The package was renamed upstream; the old
-  name now just emits a deprecation warning and re-exports the new one, but the
-  search results themselves had also started coming back empty or
-  locale-irrelevant (e.g. a login page for an unrelated local business) for
-  some queries. Migrating the import to `ddgs` and passing `region="us-en"`
-  fixed both the deprecation warning and the irrelevant-results problem.
-
-(A few more issues came up in the same debugging session — the agent not
-knowing the current date, an occasional runaway search loop, one bad tool call
-being able to crash a whole batch evaluation run, and the model's citation
-format not matching the prompt's — all fixed in `src/agent.py` and
-`src/rag.py`; see their docstrings and inline comments for details.)
-
-Running the actual RAGAS evaluation (`python -m src.evaluate --pipeline both`)
-against Groq surfaced two more, specific to using a non-OpenAI judge model:
-
-- **`answer_relevancy` requests `n=3`; Groq allows only `n=1`.** RAGAS's
-  `AnswerRelevancy` metric generates 3 reverse-engineered questions per answer
-  in a single call (`strictness=3`, passed as `n=3` to the LLM) to average
-  over for robustness -- Groq rejects any `n>1` outright
-  (`'n': number must be at most 1`). Fixed by constructing the metric with
-  `strictness=1` in `src/evaluate.py`. This is a real tradeoff (one sampled
-  question instead of three averaged), not a cosmetic workaround, and is
-  purely a Groq-API constraint -- it wouldn't come up against OpenAI directly.
-- **The judge ran out of output tokens mid-answer** (`LLMDidNotFinishException:
-  generation was not completed`). Reasoning models like gpt-oss spend part of
-  their output budget on internal reasoning before the actual answer, and
-  ragas's default token budget assumption didn't leave enough room. Fixed by
-  passing a higher explicit `max_tokens` (4096) for the judge LLM specifically
-  (`src/rag.get_llm(..., max_tokens=...)`), without changing the model that
-  answers questions.
-
-Separately (not a bug, a capacity constraint worth knowing about): a full
-full evaluation of one pipeline cost roughly 100-200k judge tokens, i.e.
-**all of Groq's free-tier token quota (200k TPD, a rolling window per model)**
--- with the original five metrics it exhausted the quota before finishing a
-single pipeline, so the two context metrics were dropped and only the three the
-brief asks for are computed. Once the cap is hit, every further call 429s, and
-ragas records `NaN` for those rather than crashing (`raise_exceptions=False`,
-the default). Scoring is therefore done one question at a time with a per-question
-cache (`data/eval_results/*_scores_cache.json`): only fully-scored questions are
-cached, a run stops early after two consecutive questions with no scores, and a
-re-run resumes where it stopped. (Also: `qwen/qwen3.8-27b` is unusable as a
-judge on the free tier -- its 1,000 output-tokens-per-minute cap rejects any
-request asking for `max_tokens=4096`.) The
-evaluator's own retry layer is deliberately capped low (`RunConfig(max_retries=2)`
-rather than ragas's default 10) specifically so hitting this doesn't also
-balloon into dozens of doomed retry attempts per metric on top of the LLM
-client's own 5 retries. If you hit this: switch `EVAL_LLM_MODEL` to a smaller
-model (e.g. `openai/gpt-oss-20b`), evaluate `--pipeline rag` and
-`--pipeline agent` as two separate runs (possibly on different days), or
-upgrade the Groq account tier.
+Covered: ingestion and chunk metadata, retrieval quality (7 queries, right document
+in the top 3), citation-to-source mapping, the calculator's rejection of code
+injection and oversized expressions, the API contract and error mapping, the
+Streamlit UI (via `AppTest`), and the evaluation's resume/caching logic.
 
 ## Known limitations
 
-- PDF text extraction occasionally mangles curly quotes/em-dashes from Word-exported
-  source PDFs (e.g. `'` renders as `�`) — cosmetic, doesn't affect retrieval quality
-  (see the retrieval smoke test), but visible in raw chunk text.
-- `langchain-community` is deprecated upstream; it's still used for `PyPDFLoader`
-  since that's the stable, documented path and migrating to a standalone loader
-  package wasn't warranted for one loader call.
-- Two extra FATF documents (Virtual Assets/VASPs risk-based-approach guidance, and
-  the original 2023 Azerbaijan Mutual Evaluation Report) couldn't be downloaded
-  because `fatf-gafi.org` rate-limits repeated automated requests — noted in
-  `data/raw/SOURCES.md` with instructions to add them manually later.
-
-## Tech stack
-
-Python 3.11+, LangChain 1.x / LangGraph (agentic layer), ChromaDB, sentence-transformers
-(local embeddings) / OpenAI embeddings, Groq / Together / OpenAI (LLM, OpenAI-compatible),
-FastAPI, Streamlit, RAGAS, Docker.
+- The agent's answers haven't been scored by RAGAS yet (see *Next steps*), and the
+  base-RAG table is the k=4 baseline.
+- PDF extraction occasionally mangles curly quotes in Word-exported PDFs (`'` → `�`);
+  cosmetic, retrieval isn't affected.
+- Two FATF documents (VASP guidance, 2023 Azerbaijan Mutual Evaluation Report)
+  couldn't be downloaded automatically because of rate limiting; see
+  [`data/raw/SOURCES.md`](data/raw/SOURCES.md).
+- This is a portfolio demo, not legal or compliance advice.
 
 ## Project structure
 
 ```
 data/
-  raw/                    16 source PDFs + SOURCES.md
-  eval_questions.json     15 gold Q&A pairs (RAGAS evaluation, Step 8)
-  agent_test_scenarios.json  10 scenarios: 5 tool-requiring, 5 knowledge-base-only
+  raw/                       16 source PDFs + SOURCES.md (URLs, retrieval dates)
+  eval_questions.json        15 gold Q&A pairs for RAGAS
+  agent_test_scenarios.json  10 routing scenarios (5 need tools, 5 knowledge-base only)
 src/
-  ingest.py               PDF loading + chunking
-  vectorstore.py          embeddings + Chroma index
-  config.py               .env-based configuration
-  rag.py                  base RAG pipeline
-  agent.py                agentic tool-calling layer
-  api.py                  FastAPI backend
-  streamlit_app.py        demo UI
-  logging_db.py           SQLite request logging
-  evaluate.py             RAGAS evaluation
-tests/                    25 tests (ingestion, retrieval, agent tools, API contract)
+  ingest.py         PDF loading + chunking
+  vectorstore.py    embeddings + Chroma index (cached per process)
+  config.py         .env-based configuration
+  rag.py            base RAG pipeline + citation-to-source mapping
+  agent.py          tool-calling agent (knowledge base, calculator, web search)
+  api.py            FastAPI backend
+  streamlit_app.py  demo UI
+  logging_db.py     SQLite request logging
+  evaluate.py       RAGAS evaluation (resumable)
+tests/              59 tests
+docs/               demo GIF, screenshots, engineering notes
 Dockerfile, docker-compose.yml, docker/entrypoint.sh
 ```
 
-## CV / LinkedIn bullets
+## Tech stack
 
-- Built a RAG-based AML/KYC compliance assistant over a 16-document, 2,000+ chunk
-  regulatory corpus (FATF, Wolfsberg Group, CBAR), using LangChain, ChromaDB, and an
-  OpenAI-compatible LLM API (Groq), with citation-grounded answers and an explicit
-  "don't know" fallback to avoid hallucinated compliance guidance.
-- Designed an agentic tool-calling layer (LangChain/LangGraph) that autonomously
-  routes between knowledge-base retrieval, a sandboxed calculator, and live web
-  search, with 10 hand-written routing test scenarios.
-- Implemented a RAGAS evaluation framework (faithfulness, answer relevancy, answer
-  correctness) comparing a base RAG pipeline against an
-  agentic one on a 15-question gold set distilled directly from source regulations.
-- Shipped the assistant as a FastAPI backend with SQLite request logging, a Streamlit
-  demo UI, and Docker/docker-compose packaging for reproducible local deployment.
+Python 3.11+, LangChain 1.x / LangGraph, ChromaDB, sentence-transformers
+(`BAAI/bge-small-en-v1.5`), Groq / Together / OpenAI (OpenAI-compatible API), FastAPI,
+Streamlit, RAGAS, pytest, ruff, Docker, GitHub Actions.
 
 ## License
 
-MIT (for the code in this repository). The bundled source documents in `data/raw/`
-remain the property of their respective publishers (FATF, the Wolfsberg Group, the
-Central Bank of the Republic of Azerbaijan, UNODC); see
-[`data/raw/SOURCES.md`](data/raw/SOURCES.md) for attribution and original URLs.
+MIT for the code in this repository. The documents in `data/raw/` remain the property
+of their publishers (FATF, the Wolfsberg Group, the Central Bank of the Republic of
+Azerbaijan, UNODC); see [`data/raw/SOURCES.md`](data/raw/SOURCES.md) for attribution.

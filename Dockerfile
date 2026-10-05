@@ -13,7 +13,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install the CPU-only PyTorch build first: the default PyPI wheel bundles
+# CUDA libraries (several GB) that this CPU-only embedding model never uses.
+# sentence-transformers then finds torch already satisfied.
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir --index-url ${TORCH_INDEX_URL} torch \
+    && pip install --no-cache-dir -r requirements.txt
 
 COPY src/ src/
 COPY data/raw/ data/raw/

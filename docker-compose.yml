@@ -14,6 +14,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      # On a fresh volume the API container first builds the Chroma index
+      # (a few minutes on CPU) before uvicorn starts; without a start period
+      # the healthcheck gave up after ~50 s and the UI never started.
+      start_period: 15m
 
   ui:
     build: .
@@ -24,8 +28,6 @@ services:
       - .env
     environment:
       - API_URL=http://api:8000
-    volumes:
-      - ./data:/app/data
     depends_on:
       api:
         condition: service_healthy
