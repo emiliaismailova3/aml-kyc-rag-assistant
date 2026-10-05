@@ -33,6 +33,12 @@ python -m src.vectorstore                                  # build the index onc
 streamlit run src/streamlit_app.py                         # (with `uvicorn src.api:app` running)
 ```
 
+## Screenshots
+
+| Answer with page-level sources | Honest refusal (no sources) | Agent mode (tool call visible) |
+|---|---|---|
+| ![Answer with sources](docs/screenshot-answer.png) | ![Refusal](docs/screenshot-refusal.png) | ![Agent calling the calculator](docs/screenshot-agent.png) |
+
 ## What this is
 
 - A **document corpus** of 16 real regulatory PDFs (FATF, the Wolfsberg Group, the
