@@ -8,9 +8,9 @@ or an honest "I don't know" instead of a hallucination. An optional **agent**
 can also use a calculator and live web search, and the whole thing is
 **measured with RAGAS** rather than just demoed.
 
-![Demo: a question answered from the documents, with page-level sources](docs/demo.gif)
+![Demo: a question answered from the documents with sources, then the agent using a calculator](docs/demo.gif)
 
-*A question answered from the indexed documents, with the file and page of every source.*
+*A question answered from the indexed documents with page-level sources, then agent mode calling the calculator.*
 
 **At a glance**
 
