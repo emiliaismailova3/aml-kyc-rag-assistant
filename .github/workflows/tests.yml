@@ -11,9 +11,38 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - run: pip install -r requirements.txt
+      - run: pip install -r requirements.txt ruff
+      - name: Lint
+        run: ruff check src tests
       # Build the vector index so the retrieval/agent-tool tests have a real
       # store to query (local embeddings, no API key needed).
       - run: python -m src.vectorstore
       # No LLM key in CI: the tests that need a live model/web are deselected.
       - run: pytest -q -k "not internet_search"
+
+  docker:
+    # Builds the image and boots both services the way a user would
+    # (`docker compose up`), so the Docker setup is verified on every push
+    # rather than only "written and syntax-checked".
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create .env from the example (no LLM key needed to boot)
+        run: cp .env.example .env
+      - name: Build images
+        run: docker compose build
+      - name: Start API + UI (API builds the Chroma index on first start)
+        run: docker compose up -d --wait --wait-timeout 1500
+      - name: API health check
+        run: curl -fsS http://localhost:8000/health
+      - name: UI health check
+        run: curl -fsS http://localhost:8501/_stcore/health
+      - name: API rejects an empty question with 422
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' \
+            -d '{"question": ""}' http://localhost:8000/ask)
+          test "$code" = "422"
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs --tail 200
