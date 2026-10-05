@@ -59,6 +59,7 @@ class AskRequest(BaseModel):
 
 
 class SourceRef(BaseModel):
+    ref: int | None = Field(None, description="Citation number used in the answer text, e.g. 3 for [3]")
     source: str
     page: int | None = None
 
@@ -151,7 +152,7 @@ def ask_agent(request: AskRequest) -> AskResponse:
 
     return AskResponse(
         answer=result["answer"],
-        sources=[],
+        sources=result.get("sources", []),
         tool_calls=result["tool_calls"],
         latency_ms=latency_ms,
     )

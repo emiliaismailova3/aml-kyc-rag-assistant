@@ -24,6 +24,7 @@ import argparse
 import ast
 import logging
 import operator
+import re
 from datetime import date
 from typing import TypedDict
 
@@ -33,7 +34,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
 
-from src.rag import clean_citations, format_context, get_llm
+from src.rag import cited_refs, clean_citations, format_context, get_llm, is_refusal
 from src.vectorstore import load_vectorstore
 
 logger = logging.getLogger(__name__)
@@ -68,11 +69,26 @@ _ALLOWED_OPERATORS = {
 }
 
 
+# Arithmetic alone can still hang the process: "9 ** 9 ** 9" is a valid
+# expression whose result has ~370 million digits. Exponents and the input
+# length are capped so a model-generated expression can't freeze the API.
+_MAX_EXPONENT = 1000
+_MAX_EXPRESSION_LENGTH = 200
+
+
 def _safe_eval(node: ast.AST) -> float:
-    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+    # bool is a subclass of int, so `True + True` would otherwise be accepted.
+    if (
+        isinstance(node, ast.Constant)
+        and isinstance(node.value, (int, float))
+        and not isinstance(node.value, bool)
+    ):
         return node.value
     if isinstance(node, ast.BinOp) and type(node.op) in _ALLOWED_OPERATORS:
-        return _ALLOWED_OPERATORS[type(node.op)](_safe_eval(node.left), _safe_eval(node.right))
+        left, right = _safe_eval(node.left), _safe_eval(node.right)
+        if isinstance(node.op, ast.Pow) and abs(right) > _MAX_EXPONENT:
+            raise ValueError(f"exponent {right} is too large (max {_MAX_EXPONENT})")
+        return _ALLOWED_OPERATORS[type(node.op)](left, right)
     if isinstance(node, ast.UnaryOp) and type(node.op) in _ALLOWED_OPERATORS:
         return _ALLOWED_OPERATORS[type(node.op)](_safe_eval(node.operand))
     raise ValueError(f"Unsupported expression component: {ast.dump(node)}")
@@ -86,6 +102,8 @@ def calculator(expression: str) -> str:
     count) instead of computing it yourself. Example input: "450 * 37" or "12.5 - 12".
     """
     try:
+        if len(expression) > _MAX_EXPRESSION_LENGTH:
+            raise ValueError(f"expression is longer than {_MAX_EXPRESSION_LENGTH} characters")
         tree = ast.parse(expression, mode="eval")
         result = _safe_eval(tree.body)
         return str(result)
@@ -186,6 +204,31 @@ make clear in your answer that you did so.
 """
 
 
+# Matches the "[3] (Source: file.pdf, p. 12)" headers written by
+# src.rag.format_context, i.e. the knowledge-base tool's output format.
+_CONTEXT_HEADER_RE = re.compile(r"^\[(\d+)\] \(Source: (.+?), p\. (\S+?)\)$", re.MULTILINE)
+
+# Tool outputs are shortened in the per-call log returned to the UI/API.
+TOOL_OUTPUT_DISPLAY_CHARS = 1000
+
+
+def _sources_from_kb_output(answer: str, kb_output: str) -> list[dict]:
+    """Map the answer's [n] citations to the documents behind them, using the
+    numbered headers of the knowledge-base tool output the agent read."""
+    headers = {
+        int(ref): (source, int(page) if page.isdigit() else None)
+        for ref, source, page in _CONTEXT_HEADER_RE.findall(kb_output)
+    }
+    if not headers or is_refusal(answer):
+        return []
+    refs = cited_refs(answer, max(headers)) or sorted(headers)
+    return [
+        {"ref": ref, "source": headers[ref][0], "page": headers[ref][1]}
+        for ref in refs
+        if ref in headers
+    ]
+
+
 class ToolCallRecord(TypedDict):
     tool: str
     input: dict | str
@@ -196,6 +239,10 @@ class AgentResult(TypedDict, total=False):
     question: str
     answer: str
     tool_calls: list[ToolCallRecord]
+    # Documents behind the answer's [n] citations (knowledge-base answers only).
+    sources: list[dict]
+    # Full text of every knowledge-base search result, for RAGAS evaluation.
+    contexts: list[str]
     # Set only when every attempt failed and `answer` is a fallback message
     # rather than a real answer -- batch callers (src.evaluate) must not treat
     # such a result as a genuine answer.
@@ -263,6 +310,8 @@ class AgentPipeline:
                     "Please try rephrasing the question."
                 ),
                 "tool_calls": [],
+                "sources": [],
+                "contexts": [],
                 "error": type(last_exc).__name__ if last_exc else "unknown",
             }
 
@@ -275,20 +324,44 @@ class AgentPipeline:
             m.tool_call_id: m for m in messages if isinstance(m, ToolMessage)
         }
         tool_calls: list[ToolCallRecord] = []
+        kb_outputs: list[str] = []
         for message in messages:
             if isinstance(message, AIMessage):
                 for call in message.tool_calls:
                     observation = tool_messages_by_id.get(call["id"])
+                    output = str(observation.content) if observation else ""
+                    if call["name"] == "search_knowledge_base" and output:
+                        kb_outputs.append(output)
                     tool_calls.append(
                         {
                             "tool": call["name"],
                             "input": call["args"],
-                            "output": str(observation.content)[:1000] if observation else "",
+                            "output": output[:TOOL_OUTPUT_DISPLAY_CHARS],
                         }
                     )
 
-        final_answer = clean_citations(messages[-1].content)
-        return {"question": question, "answer": final_answer, "tool_calls": tool_calls}
+        final_answer = clean_citations(_message_text(messages[-1]))
+        # Every knowledge-base search numbers its excerpts from [1], so the
+        # answer's citations refer to the most recent search the agent ran.
+        sources = _sources_from_kb_output(final_answer, kb_outputs[-1]) if kb_outputs else []
+        return {
+            "question": question,
+            "answer": final_answer,
+            "tool_calls": tool_calls,
+            "sources": sources,
+            "contexts": kb_outputs,
+        }
+
+
+def _message_text(message) -> str:
+    """Final answer text. Some providers return content as a list of typed
+    blocks (e.g. [{"type": "text", "text": ...}]) rather than a plain string."""
+    content = message.content
+    if isinstance(content, str):
+        return content
+    return "".join(
+        block.get("text", "") if isinstance(block, dict) else str(block) for block in content
+    )
 
 
 def _main() -> None:

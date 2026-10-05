@@ -47,6 +47,9 @@ REFUSAL_PREFIX = "i don't know"
 # prompt instruction below is followed.
 _WEIRD_CITATION_RE = re.compile(r"【\s*(\d+)[^】]*】")
 
+# Plain "[3]" / "[3, 5]" citation markers, as requested by the system prompt.
+_CITATION_RE = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
+
 # Rate limits (HTTP 429) are retried automatically by the openai client itself
 # (exponential backoff) when constructed with max_retries > its default of 2 --
 # bumped here since batch evaluation (Step 8) makes many calls in a row.
@@ -109,6 +112,41 @@ def clean_citations(answer: str) -> str:
     return _WEIRD_CITATION_RE.sub(r"[\1]", answer)
 
 
+def cited_refs(answer: str, n_chunks: int) -> list[int]:
+    """The context-chunk numbers the answer actually cites, in order of first
+    appearance, ignoring numbers outside 1..n_chunks (a model typo)."""
+    refs: list[int] = []
+    for match in _CITATION_RE.finditer(answer):
+        for part in match.group(1).split(","):
+            ref = int(part)
+            if 1 <= ref <= n_chunks and ref not in refs:
+                refs.append(ref)
+    return refs
+
+
+def build_sources(answer: str, chunks: list[Document]) -> list[dict]:
+    """Sources to show next to an answer, each tagged with its citation
+    number so "[5]" in the text can be matched to "[5] file.pdf · p.4".
+
+    Only the chunks the answer cites are returned -- listing every retrieved
+    chunk would present passages the model didn't use as evidence. If the
+    model cited nothing (it was told to), all retrieved chunks are returned
+    so the answer is never shown without any provenance. A refusal gets no
+    sources: listing chunks next to "I don't know" implies they were used.
+    """
+    if is_refusal(answer):
+        return []
+    refs = cited_refs(answer, len(chunks)) or list(range(1, len(chunks) + 1))
+    return [
+        {
+            "ref": ref,
+            "source": chunks[ref - 1].metadata.get("source"),
+            "page": chunks[ref - 1].metadata.get("page"),
+        }
+        for ref in refs
+    ]
+
+
 def get_llm(config: LLMConfig | None = None, max_tokens: int | None = None) -> ChatOpenAI:
     """Build the chat LLM client. Pass an explicit `config` (e.g. from
     src.config.get_eval_llm_config()) to use a different model than the one
@@ -163,14 +201,14 @@ class RAGPipeline:
         ]
         response = self.llm.invoke(messages)
         answer_text = clean_citations(response.content)
-        # Don't show sources alongside a refusal -- listing the retrieved
-        # chunks next to "I don't know" wrongly implies they were used.
-        sources = (
-            []
-            if is_refusal(answer_text)
-            else [{"source": c.metadata.get("source"), "page": c.metadata.get("page")} for c in chunks]
-        )
-        return {"question": question, "answer": answer_text, "sources": sources}
+        return {
+            "question": question,
+            "answer": answer_text,
+            "sources": build_sources(answer_text, chunks),
+            # Full retrieved context, kept for the RAGAS evaluation (which
+            # scores faithfulness against everything the model was shown).
+            "contexts": [c.page_content for c in chunks],
+        }
 
 
 def run_eval_questions(
@@ -227,6 +265,11 @@ def _main() -> None:
         "--run-eval", action="store_true", help="Answer every question in data/eval_questions.json"
     )
     parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K)
+    parser.add_argument(
+        "--retrieve-only",
+        action="store_true",
+        help="Only show the retrieved passages (no LLM call, no API key needed)",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -239,13 +282,17 @@ def _main() -> None:
         parser.error("Provide a question, or use --run-eval")
 
     pipeline = RAGPipeline(top_k=args.top_k)
+    if args.retrieve_only:
+        print(format_context(pipeline.retrieve(args.question)))
+        return
+
     result = pipeline.answer(args.question)
     print(f"\nQ: {result['question']}\n")
     print(f"A: {result['answer']}\n")
     if result["sources"]:
         print("Sources:")
         for s in result["sources"]:
-            print(f"  - {s['source']} (p. {s['page']})")
+            print(f"  - [{s['ref']}] {s['source']} (p. {s['page']})")
 
 
 if __name__ == "__main__":

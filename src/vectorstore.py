@@ -14,6 +14,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+from functools import lru_cache
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
@@ -26,9 +27,17 @@ logger = logging.getLogger(__name__)
 
 
 def get_embeddings() -> Embeddings:
-    """Build the embedding model configured via EMBEDDING_PROVIDER in .env."""
-    config = get_embedding_config()
+    """Return the embedding model configured via EMBEDDING_PROVIDER in .env.
 
+    Cached per configuration: loading the sentence-transformers model takes
+    seconds, and the agent's knowledge-base tool used to reload it on every
+    single tool call.
+    """
+    return _build_embeddings(get_embedding_config())
+
+
+@lru_cache(maxsize=4)
+def _build_embeddings(config) -> Embeddings:
     if config.provider == "local":
         from langchain_huggingface import HuggingFaceEmbeddings
 
@@ -90,6 +99,8 @@ def build_vectorstore(chunks: list[Document] | None = None, reset: bool = True) 
         collection_name=CHROMA_COLLECTION_NAME,
         persist_directory=str(CHROMA_PERSIST_DIR),
     )
+    # Any cached handle now points at a collection that was just replaced.
+    _load_vectorstore_cached.cache_clear()
     logger.info(
         "Persisted %d chunks to Chroma collection %r at %s",
         len(chunks),
@@ -100,11 +111,20 @@ def build_vectorstore(chunks: list[Document] | None = None, reset: bool = True) 
 
 
 def load_vectorstore() -> Chroma:
-    """Load the already-persisted Chroma vector store (does not re-index)."""
-    embeddings = get_embeddings()
+    """Load the already-persisted Chroma vector store (does not re-index).
+
+    The handle is cached and shared by the RAG pipeline and the agent's
+    knowledge-base tool, so the embedding model and the Chroma client are
+    opened once per process rather than once per question / tool call.
+    """
+    return _load_vectorstore_cached(get_embedding_config())
+
+
+@lru_cache(maxsize=4)
+def _load_vectorstore_cached(config) -> Chroma:
     return Chroma(
         collection_name=CHROMA_COLLECTION_NAME,
-        embedding_function=embeddings,
+        embedding_function=_build_embeddings(config),
         persist_directory=str(CHROMA_PERSIST_DIR),
     )
 

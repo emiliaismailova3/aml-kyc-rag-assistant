@@ -58,14 +58,20 @@ def ask_api(question: str, use_agent: bool, top_k: int) -> dict:
 
 
 def render_sources(sources: list[dict]) -> None:
-    seen, chips = set(), []
+    # One chip per (document, page); citation numbers that point at the same
+    # page are merged into it, e.g. "[2][5] fatf_recommendations.pdf · p.31".
+    refs_by_key: dict[tuple, list[int]] = {}
     for source in sources:
         key = (source["source"], source.get("page"))
-        if key in seen:
-            continue
-        seen.add(key)
-        page = f" · p.{source['page']}" if source.get("page") else ""
-        chips.append(f"<span class='chip'>{html.escape(source['source'])}{page}</span>")
+        refs = refs_by_key.setdefault(key, [])
+        if source.get("ref") is not None:
+            refs.append(source["ref"])
+    chips = []
+    for (name, page), refs in refs_by_key.items():
+        label = "".join(f"[{r}]" for r in refs)
+        label = f"<b>{label}</b> " if label else ""
+        page_text = f" · p.{page}" if page else ""
+        chips.append(f"<span class='chip'>{label}{html.escape(name)}{page_text}</span>")
     if chips:
         st.markdown("**Sources**", help="Document passages the answer was based on.")
         st.markdown("".join(chips), unsafe_allow_html=True)

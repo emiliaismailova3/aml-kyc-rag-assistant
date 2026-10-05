@@ -114,13 +114,12 @@ def _collect_rag_samples(questions: list[dict]) -> list[dict]:
     pipeline = RAGPipeline()
 
     def answer_one(item: dict) -> dict:
-        chunks = pipeline.retrieve(item["question"])
         result = pipeline.answer(item["question"])
         return {
             "id": item["id"],
             "question": item["question"],
             "answer": result["answer"],
-            "contexts": [c.page_content for c in chunks],
+            "contexts": result["contexts"],
             "ground_truth": item["ground_truth"],
         }
 
@@ -149,11 +148,10 @@ def _collect_agent_samples(questions: list[dict]) -> list[dict]:
             # is not an answer: caching and scoring it would silently poison the
             # results (this happened when the token quota ran out mid-run).
             raise RuntimeError(f"agent failed on {item['id']} ({result['error']}); not caching it")
-        contexts = [
-            call["output"]
-            for call in result["tool_calls"]
-            if call["tool"] == "search_knowledge_base"
-        ]
+        # The full, untruncated knowledge-base tool outputs (tool_calls[].output
+        # is shortened for display) -- faithfulness must be judged against
+        # everything the agent actually saw.
+        contexts = result.get("contexts", [])
         return {
             "id": item["id"],
             "question": item["question"],
