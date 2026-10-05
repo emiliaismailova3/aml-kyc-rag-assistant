@@ -71,3 +71,23 @@ def test_passages_slider_is_disabled_in_agent_mode():
     assert not app.slider[0].disabled
     app.toggle[0].set_value(True).run()
     assert app.slider[0].disabled
+
+
+def test_source_chips_show_citation_numbers():
+    payload = {
+        "answer": "Control means ultimate ownership [5][3].",
+        "sources": [
+            {"ref": 5, "source": "wolfsberg_faqs_beneficial_ownership.pdf", "page": 4},
+            {"ref": 3, "source": "fatf_guidance_beneficial_ownership_legal_persons.pdf", "page": 3},
+        ],
+        "tool_calls": [],
+        "latency_ms": 1200,
+    }
+    with patch("requests.post", return_value=_fake_response(payload)):
+        app = AppTest.from_file(APP, default_timeout=30).run()
+        app.chat_input[0].set_value("What is beneficial ownership?").run()
+
+    assert not app.exception
+    text = _markdown_text(app)
+    assert "<b>[5]</b> wolfsberg_faqs_beneficial_ownership.pdf · p.4" in text
+    assert "<b>[3]</b> fatf_guidance_beneficial_ownership_legal_persons.pdf · p.3" in text

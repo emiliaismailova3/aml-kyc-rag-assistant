@@ -20,7 +20,7 @@ class _FakePipeline:
         return {
             "question": question,
             "answer": "Beneficial ownership means ultimate control over funds. (Source: wolfsberg_faqs_beneficial_ownership.pdf, p. 1)",
-            "sources": [{"source": "wolfsberg_faqs_beneficial_ownership.pdf", "page": 1}],
+            "sources": [{"ref": 1, "source": "wolfsberg_faqs_beneficial_ownership.pdf", "page": 1}],
         }
 
 
@@ -36,7 +36,7 @@ def test_ask_returns_answer_and_sources(monkeypatch):
     assert response.status_code == 200
     data = response.json()
     assert "Beneficial ownership" in data["answer"]
-    assert data["sources"] == [{"source": "wolfsberg_faqs_beneficial_ownership.pdf", "page": 1}]
+    assert data["sources"] == [{"ref": 1, "source": "wolfsberg_faqs_beneficial_ownership.pdf", "page": 1}]
     assert data["latency_ms"] >= 0
 
 
@@ -73,3 +73,23 @@ def test_rate_limit_from_llm_provider_returns_clear_429(monkeypatch):
     response = client.post("/ask", json={"question": "anything"})
     assert response.status_code == 429
     assert "quota" in response.json()["detail"].lower()
+
+
+def test_ask_agent_returns_cited_sources_and_tool_calls(monkeypatch):
+    class FakeAgent:
+        def answer(self, question):
+            return {
+                "question": question,
+                "answer": "PEPs need enhanced due diligence [2].",
+                "tool_calls": [{"tool": "search_knowledge_base", "input": {"query": "PEP"}, "output": "..."}],
+                "sources": [{"ref": 2, "source": "wolfsberg_faqs_pep.pdf", "page": 3}],
+                "contexts": ["..."],
+            }
+
+    monkeypatch.setattr(api_module, "_agent_pipeline", FakeAgent())
+    monkeypatch.setattr(api_module, "log_request", lambda **kwargs: None)
+    response = client.post("/ask_agent", json={"question": "What about PEPs?"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["sources"] == [{"ref": 2, "source": "wolfsberg_faqs_pep.pdf", "page": 3}]
+    assert data["tool_calls"][0]["tool"] == "search_knowledge_base"

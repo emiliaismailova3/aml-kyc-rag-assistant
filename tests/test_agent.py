@@ -10,8 +10,15 @@ already-built Chroma index from Step 4.
 """
 
 import pytest
+from langchain_core.messages import AIMessage
 
-from src.agent import calculator, internet_search, search_knowledge_base
+from src.agent import (
+    _message_text,
+    _sources_from_kb_output,
+    calculator,
+    internet_search,
+    search_knowledge_base,
+)
 
 
 @pytest.mark.parametrize(
@@ -36,6 +43,10 @@ def test_calculator_arithmetic(expression, expected):
         "__import__('os').system('echo pwned')",
         "open('/etc/passwd').read()",
         "[].__class__.__base__.__subclasses__()",
+        # Valid arithmetic that would hang the process (a ~370-million-digit result).
+        "9 ** 9 ** 9",
+        "True + True",
+        "1 + " * 100 + "1",
     ],
 )
 def test_calculator_rejects_non_arithmetic(malicious_input):
@@ -64,3 +75,30 @@ def test_internet_search_returns_string_without_crashing():
     result = internet_search.invoke({"query": "FATF grey list jurisdictions"})
     assert isinstance(result, str)
     assert "Web search failed" not in result
+
+
+KB_OUTPUT = """[1] (Source: fatf_recommendations_2025.pdf, p. 12)
+Customer due diligence measures ...
+
+[2] (Source: wolfsberg_faqs_pep.pdf, p. 3)
+A politically exposed person ...
+
+[3] (Source: fatf_recommendations_2025.pdf, p. 31)
+Beneficial ownership ..."""
+
+
+def test_agent_sources_map_citations_to_documents():
+    sources = _sources_from_kb_output("PEPs need enhanced due diligence [2][3].", KB_OUTPUT)
+    assert sources == [
+        {"ref": 2, "source": "wolfsberg_faqs_pep.pdf", "page": 3},
+        {"ref": 3, "source": "fatf_recommendations_2025.pdf", "page": 31},
+    ]
+
+
+def test_agent_sources_empty_for_refusal():
+    assert _sources_from_kb_output("I don't know based on the available information.", KB_OUTPUT) == []
+
+
+def test_message_text_handles_list_content_blocks():
+    message = AIMessage(content=[{"type": "text", "text": "The product is "}, {"type": "text", "text": "16,650."}])
+    assert _message_text(message) == "The product is 16,650."
