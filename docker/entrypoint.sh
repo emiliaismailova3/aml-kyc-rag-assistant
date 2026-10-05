@@ -4,13 +4,17 @@
 # e.g. on a fresh volume), then starts the requested service.
 set -euo pipefail
 
-if [ ! -d "/app/data/chroma_db" ] || [ -z "$(ls -A /app/data/chroma_db 2>/dev/null)" ]; then
-    echo "No existing Chroma index found -- building it from data/raw/ ..."
-    python -m src.vectorstore
-fi
+# Only the API reads the index; the UI just talks to the API over HTTP.
+build_index_if_missing() {
+    if [ ! -d "/app/data/chroma_db" ] || [ -z "$(ls -A /app/data/chroma_db 2>/dev/null)" ]; then
+        echo "No existing Chroma index found -- building it from data/raw/ ..."
+        python -m src.vectorstore
+    fi
+}
 
 case "${1:-api}" in
     api)
+        build_index_if_missing
         exec uvicorn src.api:app --host 0.0.0.0 --port 8000
         ;;
     ui)
