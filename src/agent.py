@@ -145,6 +145,11 @@ def internet_search(query: str) -> str:
 
 # --- Knowledge base retrieval tool -------------------------------------------
 
+# 4 rather than the base pipeline's 8: the agent's request also carries the system
+# prompt and the tool-call history, and with 8 chunks it exceeded Groq's free-tier
+# limit of 8000 tokens per request for gpt-oss-120b (HTTP 413: 8289 requested).
+AGENT_TOP_K = 4
+
 
 @tool
 def search_knowledge_base(query: str) -> str:
@@ -155,7 +160,7 @@ def search_knowledge_base(query: str) -> str:
     excerpts, each labeled with its source document and page number.
     """
     store = load_vectorstore()
-    chunks = store.similarity_search(query, k=8)
+    chunks = store.similarity_search(query, k=AGENT_TOP_K)
     if not chunks:
         return "No relevant documents found in the knowledge base."
     return format_context(chunks)
