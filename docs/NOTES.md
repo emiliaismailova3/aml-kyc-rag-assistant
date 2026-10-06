@@ -52,8 +52,7 @@ against Groq surfaced two more, specific to using a non-OpenAI judge model:
   (`src/rag.get_llm(..., max_tokens=...)`), without changing the model that
   answers questions.
 
-Separately (not a bug, a capacity constraint worth knowing about): a full
-full evaluation of one pipeline cost roughly 100-200k judge tokens, i.e.
+Separately (not a bug, a capacity constraint worth knowing about): a full evaluation of one pipeline cost roughly 100-200k judge tokens, i.e.
 **all of Groq's free-tier token quota (200k TPD, a rolling window per model)**
 -- with the original five metrics it exhausted the quota before finishing a
 single pipeline, so the two context metrics were dropped and only the three the
