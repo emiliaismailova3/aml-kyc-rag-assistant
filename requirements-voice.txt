@@ -1,0 +1,2 @@
+# Optional: local speech-to-text for POST /ask_voice (downloads a Whisper model on first use)
+faster-whisper==1.2.1

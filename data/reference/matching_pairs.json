@@ -1,0 +1,202 @@
+[
+  {
+    "query": "Lənkəran Ticarət QSC",
+    "expected_id": 42,
+    "kind": "exact"
+  },
+  {
+    "query": "Göyçay Dərman ASC",
+    "expected_id": 33,
+    "kind": "exact"
+  },
+  {
+    "query": "Çinar Telekom LLC",
+    "expected_id": 26,
+    "kind": "exact"
+  },
+  {
+    "query": "Şəki Telekom QSC",
+    "expected_id": 44,
+    "kind": "exact"
+  },
+  {
+    "query": "Kəpəz Tekstil QSC",
+    "expected_id": 35,
+    "kind": "exact"
+  },
+  {
+    "query": "Xəzər Tikinti LLC",
+    "expected_id": 22,
+    "kind": "exact"
+  },
+  {
+    "query": "KƏPƏZ KONSALTINQ MMC",
+    "expected_id": 2,
+    "kind": "uppercase"
+  },
+  {
+    "query": "ÇINAR LOGISTIKA MMC",
+    "expected_id": 8,
+    "kind": "uppercase"
+  },
+  {
+    "query": "ODLAR TEKSTIL MMC",
+    "expected_id": 17,
+    "kind": "uppercase"
+  },
+  {
+    "query": "ODLAR DƏRMAN MMC",
+    "expected_id": 12,
+    "kind": "uppercase"
+  },
+  {
+    "query": "AYGÜN TICARƏT ASC",
+    "expected_id": 38,
+    "kind": "uppercase"
+  },
+  {
+    "query": "GÜNƏŞ DƏRMAN MMC",
+    "expected_id": 50,
+    "kind": "uppercase"
+  },
+  {
+    "query": "Qafqaz Neft Servis LLC",
+    "expected_id": 3,
+    "kind": "no_diacritics"
+  },
+  {
+    "query": "Goycay Kimya ASC",
+    "expected_id": 7,
+    "kind": "no_diacritics"
+  },
+  {
+    "query": "Heyat Mebel MMC",
+    "expected_id": 28,
+    "kind": "no_diacritics"
+  },
+  {
+    "query": "Ipek Konsaltinq MMC",
+    "expected_id": 23,
+    "kind": "no_diacritics"
+  },
+  {
+    "query": "Lenkeran Enerji MMC",
+    "expected_id": 21,
+    "kind": "no_diacritics"
+  },
+  {
+    "query": "Goycay Tikinti MMC",
+    "expected_id": 36,
+    "kind": "no_diacritics"
+  },
+  {
+    "query": "Naxçıvan Tekstil",
+    "expected_id": 43,
+    "kind": "no_legal_form"
+  },
+  {
+    "query": "Ülkər Telekom",
+    "expected_id": 13,
+    "kind": "no_legal_form"
+  },
+  {
+    "query": "Gəncə Mebel",
+    "expected_id": 29,
+    "kind": "no_legal_form"
+  },
+  {
+    "query": "Ədalət Nəqliyyat",
+    "expected_id": 19,
+    "kind": "no_legal_form"
+  },
+  {
+    "query": "\"Lənkəran Kimya\" MMC",
+    "expected_id": 37,
+    "kind": "quotes_other_form"
+  },
+  {
+    "query": "\"Bakı Texnologiya\" LLC",
+    "expected_id": 9,
+    "kind": "quotes_other_form"
+  },
+  {
+    "query": "\"Mingəçevir Tekstil\" LLC",
+    "expected_id": 47,
+    "kind": "quotes_other_form"
+  },
+  {
+    "query": "Ülkər Dəramn QSC",
+    "expected_id": 46,
+    "kind": "typo"
+  },
+  {
+    "query": "İpək Dəramn MMC",
+    "expected_id": 14,
+    "kind": "typo"
+  },
+  {
+    "query": "Aygün Tiiknti MMC",
+    "expected_id": 1,
+    "kind": "typo"
+  },
+  {
+    "query": "Aygün Dəmran MMC",
+    "expected_id": 39,
+    "kind": "typo"
+  },
+  {
+    "query": "Qafqaz Nəqlyiyat ASC",
+    "expected_id": 18,
+    "kind": "typo"
+  },
+  {
+    "query": "Sunrise Trading Ltd",
+    "expected_id": null,
+    "kind": "not_in_table"
+  },
+  {
+    "query": "Karabakh Gold Mining ASC",
+    "expected_id": null,
+    "kind": "not_in_table"
+  },
+  {
+    "query": "Alpha Beta Consulting",
+    "expected_id": null,
+    "kind": "not_in_table"
+  },
+  {
+    "query": "Zeytun Bakery MMC",
+    "expected_id": null,
+    "kind": "not_in_table"
+  },
+  {
+    "query": "Global Freight Partners",
+    "expected_id": null,
+    "kind": "not_in_table"
+  },
+  {
+    "query": "Mavi Dalğa Turizm MMC",
+    "expected_id": null,
+    "kind": "not_in_table"
+  },
+  {
+    "query": "Nova Pharma LLC",
+    "expected_id": null,
+    "kind": "not_in_table"
+  },
+  {
+    "query": "Atlas Steel QSC",
+    "expected_id": null,
+    "kind": "not_in_table"
+  },
+  {
+    "query": "Pristine Cleaning Services",
+    "expected_id": null,
+    "kind": "not_in_table"
+  },
+  {
+    "query": "Orion Software Hub",
+    "expected_id": null,
+    "kind": "not_in_table"
+  }
+]

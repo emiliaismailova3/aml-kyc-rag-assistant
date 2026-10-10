@@ -12,13 +12,18 @@ Run with:
 from __future__ import annotations
 
 import logging
+import tempfile
 import time
+from pathlib import Path
+from typing import Annotated
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from openai import APIError, RateLimitError
 from pydantic import BaseModel, Field
 
 from src.agent import AgentPipeline
+from src.invoices.extract import ExtractionResult, extract_invoice
+from src.invoices.ocr import IMAGE_SUFFIXES
 from src.logging_db import log_request
 from src.rag import RAGPipeline
 
@@ -156,3 +161,27 @@ def ask_agent(request: AskRequest) -> AskResponse:
         tool_calls=result["tool_calls"],
         latency_ms=latency_ms,
     )
+
+
+@app.post("/invoices/extract", response_model=ExtractionResult)
+async def extract_invoice_endpoint(file: Annotated[UploadFile, File()]) -> ExtractionResult:
+    """Upload an invoice (PDF or image); get back validated structured data,
+    or needs_human_review=true if the LLM could not produce a valid result."""
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix != ".pdf" and suffix not in IMAGE_SUFFIXES:
+        raise HTTPException(status_code=415, detail="Upload a PDF or an image (png, jpg, tiff).")
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / f"upload{suffix}"
+        path.write_bytes(await file.read())
+        try:
+            return extract_invoice(path)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except APIError as exc:
+            raise _llm_http_error(exc) from exc
+        except Exception as exc:  # noqa: BLE001 - OCR engine missing etc.
+            if type(exc).__name__ == "TesseractNotFoundError":
+                raise HTTPException(
+                    status_code=503, detail="OCR is unavailable: the Tesseract binary is not installed."
+                ) from exc
+            raise

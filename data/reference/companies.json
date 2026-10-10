@@ -1,0 +1,252 @@
+[
+  {
+    "id": 1,
+    "name": "Aygün Tikinti MMC",
+    "voen": "3090237817"
+  },
+  {
+    "id": 2,
+    "name": "Kəpəz Konsaltinq MMC",
+    "voen": "2274350418"
+  },
+  {
+    "id": 3,
+    "name": "Qafqaz Neft Servis LLC",
+    "voen": "3328710672"
+  },
+  {
+    "id": 4,
+    "name": "Gəncə Konsaltinq MMC",
+    "voen": "2346922426"
+  },
+  {
+    "id": 5,
+    "name": "Qafqaz Ticarət ASC",
+    "voen": "7803990970"
+  },
+  {
+    "id": 6,
+    "name": "Lənkəran Dərman MMC",
+    "voen": "3281169403"
+  },
+  {
+    "id": 7,
+    "name": "Göyçay Kimya ASC",
+    "voen": "1798112150"
+  },
+  {
+    "id": 8,
+    "name": "Çinar Logistika MMC",
+    "voen": "9881824272"
+  },
+  {
+    "id": 9,
+    "name": "Bakı Texnologiya ASC",
+    "voen": "2734202799"
+  },
+  {
+    "id": 10,
+    "name": "Kəpəz Logistika ASC",
+    "voen": "3553440342"
+  },
+  {
+    "id": 11,
+    "name": "Bakı Aqrar LLC",
+    "voen": "5647083348"
+  },
+  {
+    "id": 12,
+    "name": "Odlar Dərman MMC",
+    "voen": "7540301973"
+  },
+  {
+    "id": 13,
+    "name": "Ülkər Telekom MMC",
+    "voen": "8370987661"
+  },
+  {
+    "id": 14,
+    "name": "İpək Dərman MMC",
+    "voen": "6435772945"
+  },
+  {
+    "id": 15,
+    "name": "Həyat Dərman MMC",
+    "voen": "6583444930"
+  },
+  {
+    "id": 16,
+    "name": "Odlar Kimya MMC",
+    "voen": "5018948187"
+  },
+  {
+    "id": 17,
+    "name": "Odlar Tekstil MMC",
+    "voen": "5278201677"
+  },
+  {
+    "id": 18,
+    "name": "Qafqaz Nəqliyyat ASC",
+    "voen": "3309122187"
+  },
+  {
+    "id": 19,
+    "name": "Ədalət Nəqliyyat MMC",
+    "voen": "2139027119"
+  },
+  {
+    "id": 20,
+    "name": "Füzuli Nəqliyyat MMC",
+    "voen": "4783282817"
+  },
+  {
+    "id": 21,
+    "name": "Lənkəran Enerji MMC",
+    "voen": "6882074066"
+  },
+  {
+    "id": 22,
+    "name": "Xəzər Tikinti LLC",
+    "voen": "3271782991"
+  },
+  {
+    "id": 23,
+    "name": "İpək Konsaltinq MMC",
+    "voen": "3849232839"
+  },
+  {
+    "id": 24,
+    "name": "Lənkəran Mebel MMC",
+    "voen": "2135872495"
+  },
+  {
+    "id": 25,
+    "name": "Dəniz Aqrar MMC",
+    "voen": "5962610986"
+  },
+  {
+    "id": 26,
+    "name": "Çinar Telekom LLC",
+    "voen": "3597724331"
+  },
+  {
+    "id": 27,
+    "name": "Lənkəran Tekstil LLC",
+    "voen": "2472659626"
+  },
+  {
+    "id": 28,
+    "name": "Həyat Mebel MMC",
+    "voen": "7393195616"
+  },
+  {
+    "id": 29,
+    "name": "Gəncə Mebel QSC",
+    "voen": "9986353481"
+  },
+  {
+    "id": 30,
+    "name": "Xəzər Enerji MMC",
+    "voen": "8856990236"
+  },
+  {
+    "id": 31,
+    "name": "Naxçıvan Telekom MMC",
+    "voen": "5310195918"
+  },
+  {
+    "id": 32,
+    "name": "Çinar Qida LLC",
+    "voen": "2125089309"
+  },
+  {
+    "id": 33,
+    "name": "Göyçay Dərman ASC",
+    "voen": "8325785916"
+  },
+  {
+    "id": 34,
+    "name": "Qafqaz Texnologiya MMC",
+    "voen": "1041531046"
+  },
+  {
+    "id": 35,
+    "name": "Kəpəz Tekstil QSC",
+    "voen": "3373077218"
+  },
+  {
+    "id": 36,
+    "name": "Göyçay Tikinti MMC",
+    "voen": "1547374338"
+  },
+  {
+    "id": 37,
+    "name": "Lənkəran Kimya LLC",
+    "voen": "2536778950"
+  },
+  {
+    "id": 38,
+    "name": "Aygün Ticarət ASC",
+    "voen": "5736462531"
+  },
+  {
+    "id": 39,
+    "name": "Aygün Dərman MMC",
+    "voen": "4993808565"
+  },
+  {
+    "id": 40,
+    "name": "Günəş Qida QSC",
+    "voen": "4482238042"
+  },
+  {
+    "id": 41,
+    "name": "Lənkəran Telekom LLC",
+    "voen": "1106456634"
+  },
+  {
+    "id": 42,
+    "name": "Lənkəran Ticarət QSC",
+    "voen": "9265609985"
+  },
+  {
+    "id": 43,
+    "name": "Naxçıvan Tekstil MMC",
+    "voen": "4482141802"
+  },
+  {
+    "id": 44,
+    "name": "Şəki Telekom QSC",
+    "voen": "4011966884"
+  },
+  {
+    "id": 45,
+    "name": "Mingəçevir Telekom QSC",
+    "voen": "4745927824"
+  },
+  {
+    "id": 46,
+    "name": "Ülkər Dərman QSC",
+    "voen": "1955345537"
+  },
+  {
+    "id": 47,
+    "name": "Mingəçevir Tekstil MMC",
+    "voen": "6796738787"
+  },
+  {
+    "id": 48,
+    "name": "Ədalət Aqrar LLC",
+    "voen": "1957449367"
+  },
+  {
+    "id": 49,
+    "name": "Həyat Telekom MMC",
+    "voen": "6124453431"
+  },
+  {
+    "id": 50,
+    "name": "Günəş Dərman MMC",
+    "voen": "8616379926"
+  }
+]
