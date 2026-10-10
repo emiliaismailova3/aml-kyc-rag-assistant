@@ -22,10 +22,12 @@ from __future__ import annotations
 
 import argparse
 import ast
+import json
 import logging
 import operator
 import re
 from datetime import date
+from pathlib import Path
 from typing import TypedDict
 
 from ddgs import DDGS
@@ -34,9 +36,12 @@ from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
 
-from src.config import get_llm_config
+from src.config import PROJECT_ROOT, get_llm_config
+from src.invoices.extract import extract_invoice as extract_invoice_file
 from src.llm_callbacks import LLMCallLogger
+from src.matching.matcher import CompanyMatcher, load_companies
 from src.rag import cited_refs, clean_citations, format_context, get_llm, is_refusal
+from src.sql_tool import SQLNotAllowed, format_rows, run_readonly_query
 from src.vectorstore import load_vectorstore
 
 logger = logging.getLogger(__name__)
@@ -168,7 +173,62 @@ def search_knowledge_base(query: str) -> str:
     return format_context(chunks)
 
 
-TOOLS = [search_knowledge_base, calculator, internet_search]
+# --- Business-data tools ----------------------------------------------------------
+
+INVOICE_DIRS = [PROJECT_ROOT / "data" / "invoices", PROJECT_ROOT / "data" / "uploads"]
+
+
+@tool
+def sql_query(query: str) -> str:
+    """Run a read-only SQL SELECT on the business database. Use it for questions about
+    stored invoices and registered companies (totals, counts, who issued what, review flags).
+    Only these two views exist (PostgreSQL syntax):
+      v_invoices(id, company_id, company_name, invoice_number, issue_date, total_amount,
+                 currency, needs_human_review)
+      v_companies(id, name, voen)
+    Only one SELECT statement is allowed; at most 100 rows. Example:
+      SELECT currency, SUM(total_amount) AS total FROM v_invoices GROUP BY currency
+    """
+    try:
+        return format_rows(run_readonly_query(query))
+    except SQLNotAllowed as exc:
+        return f"Query rejected: {exc}"
+    except Exception as exc:  # noqa: BLE001 - database errors are reported to the agent, not raised
+        return f"Query failed ({type(exc).__name__}): {exc}"
+
+
+def _find_invoice_file(file_name: str) -> Path | None:
+    name = Path(file_name).name  # strip any directories: no path traversal
+    for directory in INVOICE_DIRS:
+        candidate = directory / name
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+@tool
+def extract_invoice(file_name: str) -> str:
+    """Read an invoice file (PDF or image) and return its structured data as JSON:
+    company name, VOEN, invoice number, date, total, currency, and the matching company
+    from the reference table. Pass only the file name, e.g. "inv_01_text.pdf".
+    Files that need OCR require the Tesseract program on the server.
+    """
+    path = _find_invoice_file(file_name)
+    if path is None:
+        available = sorted(p.name for d in INVOICE_DIRS if d.is_dir() for p in d.iterdir() if p.suffix in {".pdf", ".png", ".jpg"})
+        return f"File {file_name!r} not found. Available invoice files: {', '.join(available[:20]) or 'none'}"
+    try:
+        result = extract_invoice_file(path)
+    except Exception as exc:  # noqa: BLE001 - e.g. Tesseract missing: tell the agent
+        return f"Invoice extraction failed ({type(exc).__name__}): {exc}"
+    payload = result.model_dump(mode="json")
+    if result.invoice:
+        match = CompanyMatcher(load_companies()).match(result.invoice.company_name, result.invoice.voen)
+        payload["company_match"] = match.model_dump()
+    return json.dumps(payload, ensure_ascii=False)
+
+
+TOOLS = [search_knowledge_base, calculator, internet_search, sql_query, extract_invoice]
 
 
 def _build_system_prompt() -> str:
@@ -180,7 +240,11 @@ def _build_system_prompt() -> str:
     return f"""You are an AML/KYC compliance assistant for a neobank/fintech.
 Today's date is {today}.
 
-You have three tools:
+You have five tools:
+- sql_query: read-only SQL over stored invoices and registered companies (totals, counts,
+  who issued which invoice). Use it instead of guessing numbers about stored business data.
+- extract_invoice: reads one invoice file (PDF/image) from the server by file name and
+  returns structured fields and the matching registered company.
 - search_knowledge_base: for AML/KYC policy, regulation, and compliance questions.
 - calculator: for arithmetic, percentages, or numeric comparisons.
 - internet_search: for live or current information not in the static knowledge base

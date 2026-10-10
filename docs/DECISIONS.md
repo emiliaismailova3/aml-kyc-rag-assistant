@@ -36,3 +36,10 @@ Decisions taken while extending the RAG project into the "AI Document Assistant"
 - **Retry only transient errors** (408, 409, 429, 5xx, timeouts, dropped connections). A 400/401/404 skips straight to the next provider.
 - **Agent exception:** the LangGraph agent talks to the model through LangChain's `ChatOpenAI` (tool calling), so it gets a logging callback and the SDK's own retries, but no provider fallback. Documented as partial in docs/STATUS.md.
 - **Prices** in `config.DEFAULT_PRICES` are approximate list prices used only to estimate cost; override with `LLM_PRICES_JSON`.
+
+## 7. SQL tool: parser + view whitelist + read-only role, not "trust the prompt"
+- **Decision:** the agent's `sql_query` accepts one plain `SELECT` (parsed with `sqlglot`), only over two views (`v_invoices`, `v_companies`), with a mandatory `LIMIT` (added at 50 if missing, rejected above 100), a blocklist of dangerous functions, and execution in a read-only transaction with a 3 s statement timeout. On PostgreSQL it connects as the `assistant_ro` role, which can read only those views.
+- **Alternatives:** let the LLM write any SQL and rely on the prompt; regex checks; text-to-SQL frameworks.
+- **Why:** an LLM can be talked into anything (prompt injection through document text). The guarantees must come from code and database permissions, in layers, so no single bug is enough. Known limit: CTEs (`WITH`) and `UNION` are rejected for simplicity, which also costs some legitimate queries.
+- **Invoice rows for the demo** come from the ground-truth labels (`python -m scripts.seed_demo_db`), not from the extractor, so SQL scenarios do not depend on OCR or on LLM quota.
+- **Bug found by the live run:** `PRAGMA query_only` leaked into a shared SQLite connection and later made log writes fail. Fixed with a separate engine plus reset in `finally`; regression test added.
