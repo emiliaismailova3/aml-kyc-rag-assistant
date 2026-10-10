@@ -31,8 +31,8 @@ says plainly what was **not** run. Numbers come from `data/eval_results/*.json` 
   RAGAS evaluation was started on `main` (3 tools, 4 chunks per search) and stopped by Groq's daily quota; its partial
   cache is from that agent, so re-run it from scratch on whichever branch you present.
 - **Voice quality is unmeasured** (no recordings set, no WER). Azerbaijani speech was not tested.
-- **Docker:** `worker` and `beat` services are validated with `docker compose config`; see the note at the bottom
-  about the image build.
+- **Docker:** the image builds with all new dependencies (built locally, and the CI `docker` job that boots API + UI is green on this
+  branch). The `worker` and `beat` *containers* were never started: only `docker compose config` validation, plus a worker run directly on the host.
 - Matching and invoices use **synthetic fictional data**; nothing here was tested on real company documents.
 - The demo invoice rows in the database come from the ground-truth labels, not from the extractor.
 
