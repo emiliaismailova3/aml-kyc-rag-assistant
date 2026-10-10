@@ -22,7 +22,9 @@ RUN pip install --no-cache-dir --index-url ${TORCH_INDEX_URL} torch \
 
 COPY src/ src/
 COPY data/raw/ data/raw/
-COPY data/eval_questions.json data/agent_test_scenarios.json data/
+COPY data/eval_questions.json data/agent_test_scenarios.json data/sources.json data/
+COPY data/reference/ data/reference/
+COPY data/invoices/ data/invoices/
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

@@ -110,6 +110,10 @@ class PGVectorStore:
                 conn.execute(insert_sql, rows)
         return len(chunks)
 
+    def delete_source(self, doc_name: str) -> None:
+        with self.engine.begin() as conn:
+            conn.execute(text(f"DELETE FROM {self.table} WHERE doc_name = :name"), {"name": doc_name})
+
     def similarity_search(self, query: str, k: int = 4) -> list[Document]:
         vector = self.embeddings.embed_query(query)
         with self.engine.connect() as conn:

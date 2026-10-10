@@ -66,5 +66,34 @@ services:
       timeout: 3s
       retries: 10
 
+  # Celery worker + beat scheduler for the data collector. They store into PostgreSQL
+  # (Chroma is not safe for two processes writing at once).
+  worker:
+    build: .
+    command: ["worker"]
+    profiles: ["full"]
+    env_file:
+      - .env
+    environment: &collector_env
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql://assistant:assistant@postgres:5432/assistant
+      VECTOR_BACKEND: pgvector
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  beat:
+    build: .
+    command: ["beat"]
+    profiles: ["full"]
+    env_file:
+      - .env
+    environment: *collector_env
+    depends_on:
+      redis:
+        condition: service_healthy
+
 volumes:
   pgdata:

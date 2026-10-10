@@ -192,3 +192,13 @@ def get_provider_chain() -> list[ProviderSettings]:
             )
         )
     return chain
+
+
+# --- Scheduled data collection (src/collector/) -----------------------------
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+COLLECT_INTERVAL_MINUTES = int(os.getenv("COLLECT_INTERVAL_MINUTES", "360"))
+# Seconds to wait between two requests to the same website.
+COLLECT_MIN_INTERVAL_SECONDS = float(os.getenv("COLLECT_MIN_INTERVAL_SECONDS", "5"))
+COLLECTOR_USER_AGENT = os.getenv(
+    "COLLECTOR_USER_AGENT", "aml-kyc-assistant-collector/1.0 (portfolio project; polite crawler)"
+)

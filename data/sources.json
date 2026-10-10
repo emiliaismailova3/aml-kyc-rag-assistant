@@ -1,0 +1,8 @@
+{
+  "_comment": "URLs the scheduled collector fetches. Only public pages that allow crawling in robots.txt; the collector checks robots.txt again at run time. Wikipedia text is CC BY-SA.",
+  "sources": [
+    {"name": "wikipedia_kyc", "url": "https://en.wikipedia.org/wiki/Know_your_customer"},
+    {"name": "wikipedia_aml", "url": "https://en.wikipedia.org/wiki/Money_laundering"},
+    {"name": "w3c_example_pdf", "url": "https://www.w3.org/WAI/WCAG21/working-examples/pdf-table/table.pdf"}
+  ]
+}

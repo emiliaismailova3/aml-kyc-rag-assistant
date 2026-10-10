@@ -43,3 +43,11 @@ Decisions taken while extending the RAG project into the "AI Document Assistant"
 - **Why:** an LLM can be talked into anything (prompt injection through document text). The guarantees must come from code and database permissions, in layers, so no single bug is enough. Known limit: CTEs (`WITH`) and `UNION` are rejected for simplicity, which also costs some legitimate queries.
 - **Invoice rows for the demo** come from the ground-truth labels (`python -m scripts.seed_demo_db`), not from the extractor, so SQL scenarios do not depend on OCR or on LLM quota.
 - **Bug found by the live run:** `PRAGMA query_only` leaked into a shared SQLite connection and later made log writes fail. Fixed with a separate engine plus reset in `finally`; regression test added.
+
+## 8. Collector: one Celery task per URL, hash-based idempotency, politeness built in
+- **Decision:** `collect_all` (run by Celery beat) fans out one `collect_one` task per source. Each task checks robots.txt, waits per-host, downloads, cleans, hashes the normalized text and skips known hashes; a changed page replaces its old chunks. Network/HTTP errors retry with exponential backoff + jitter (max 3); robots blocks and unsupported content do not retry. `acks_late=True`.
+- **Alternatives:** plain cron + a script; Scrapy; one big task for all URLs.
+- **Why:** per-URL tasks fail and retry independently; hashing makes re-runs safe; cron would need its own retry/queue logic and Scrapy is much more than needed.
+- **Demo sources** are two Wikipedia pages (CC BY-SA, crawling allowed) and one small W3C PDF, because regulator sites (FATF returned 403, CBAR has no robots.txt) are not reliably crawlable.
+- **Worker storage:** the Docker worker writes to PostgreSQL/pgvector, since Chroma is not safe for concurrent writers.
+- **Rate limiter** is in-process memory, which is correct for one worker; several workers would need a Redis-based limiter (not done).
