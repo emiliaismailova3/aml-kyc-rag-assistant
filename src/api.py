@@ -17,13 +17,16 @@ import time
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 from openai import APIError, RateLimitError
 from pydantic import BaseModel, Field
 
 from src.agent import AgentPipeline
 from src.invoices.extract import ExtractionResult, extract_invoice
 from src.invoices.ocr import IMAGE_SUFFIXES
+from src.llm_client import LLMUnavailable
+from src.llm_stats import get_stats
 from src.logging_db import log_request
 from src.rag import RAGPipeline
 
@@ -91,6 +94,15 @@ def _llm_http_error(exc: Exception) -> HTTPException:
             "Please try again later.",
         )
     return HTTPException(status_code=502, detail=f"The LLM provider returned an error: {exc}")
+
+
+@app.exception_handler(LLMUnavailable)
+async def llm_unavailable_handler(request: Request, exc: LLMUnavailable) -> JSONResponse:
+    """Every provider in the fallback chain failed: tell the client, and flag it for a human."""
+    return JSONResponse(
+        status_code=429 if exc.rate_limited else 503,
+        content={"detail": str(exc), "escalate_to_human": True},
+    )
 
 
 @app.get("/health")
@@ -185,3 +197,9 @@ async def extract_invoice_endpoint(file: Annotated[UploadFile, File()]) -> Extra
                     status_code=503, detail="OCR is unavailable: the Tesseract binary is not installed."
                 ) from exc
             raise
+
+
+@app.get("/stats")
+def stats() -> dict:
+    """Latency percentiles, error rate and estimated cost of the recorded LLM calls."""
+    return get_stats()

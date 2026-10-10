@@ -34,6 +34,8 @@ from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
 
+from src.config import get_llm_config
+from src.llm_callbacks import LLMCallLogger
 from src.rag import cited_refs, clean_citations, format_context, get_llm, is_refusal
 from src.vectorstore import load_vectorstore
 
@@ -261,7 +263,8 @@ def build_agent_executor():
     LangGraph graph that loops between the model and the tools until the
     model stops requesting tool calls.
     """
-    llm = get_llm()
+    config = get_llm_config()
+    llm = get_llm(config, callbacks=[LLMCallLogger(config.provider, config.model)])
     return create_agent(model=llm, tools=TOOLS, system_prompt=_build_system_prompt())
 
 

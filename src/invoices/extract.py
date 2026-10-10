@@ -18,6 +18,7 @@ from pydantic import BaseModel, ValidationError
 
 from src.invoices.ocr import extract_text
 from src.invoices.schema import InvoiceData
+from src.llm_client import LLMUnavailable
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +59,10 @@ def parse_json_reply(reply: str) -> dict:
 
 
 def _default_llm_call(messages: list[dict]) -> str:
-    from src.rag import get_llm
+    from src.llm_client import get_client
 
-    return get_llm().invoke([(m["role"], m["content"]) for m in messages]).content
+    # More than [system, user] means the first answer failed validation: use the main model.
+    return get_client().complete(messages, task="invoice_extraction", retry=len(messages) > 2).text
 
 
 def extract_from_text(text: str, llm_call: LLMCall | None = None) -> ExtractionResult:
@@ -71,7 +73,13 @@ def extract_from_text(text: str, llm_call: LLMCall | None = None) -> ExtractionR
     ]
     errors: list[str] = []
     for attempt in range(1, MAX_RETRIES + 2):
-        reply = llm_call(messages)
+        try:
+            reply = llm_call(messages)
+        except LLMUnavailable as exc:
+            # Every provider is down: do not lose the document, hand it to a person.
+            return ExtractionResult(
+                needs_human_review=True, errors=errors + [str(exc)], attempts=attempt
+            )
         try:
             invoice = InvoiceData.model_validate(parse_json_reply(reply))
             return ExtractionResult(invoice=invoice, attempts=attempt)

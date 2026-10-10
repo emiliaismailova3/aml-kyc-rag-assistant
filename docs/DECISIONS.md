@@ -27,3 +27,12 @@ Decisions taken while extending the RAG project into the "AI Document Assistant"
 - **Decision:** relational tables (companies, invoices, request_logs, llm_calls, collected_documents) are defined once with SQLAlchemy Core. `DATABASE_URL` empty -> SQLite file, set -> PostgreSQL. Only the `chunks` table with its `vector(384)` column and HNSW index is PostgreSQL-specific.
 - **Alternatives:** an ORM (heavier); raw psycopg everywhere (two SQL dialects to maintain); require Postgres for everything.
 - **Why:** tests and the quickstart need no database server, and the same code runs on both. Postgres/Redis are opt-in through a docker-compose profile so the existing CI smoke test is unchanged.
+
+## 6. LLM wrapper: own small client with explicit retry/fallback, not a framework
+- **Decision:** `src/llm_client.py` calls the OpenAI and Anthropic SDKs directly (SDK-level retries disabled, `max_retries=0`) and implements routing, backoff with jitter, fallback chain, and logging in ~200 lines.
+- **Alternatives:** LiteLLM / LangChain fallbacks; relying on the SDKs' built-in retry.
+- **Why:** each attempt must be logged and must be able to trigger the fallback, which built-in retries hide. The code is short enough to explain line by line.
+- **Routing rule:** small model if the prompt is <= 4000 characters (about 1000 tokens), no tools are needed, and it is not a retry after a failed first attempt; otherwise the main model. Invoice extraction therefore uses the small model first and the main model for repairs.
+- **Retry only transient errors** (408, 409, 429, 5xx, timeouts, dropped connections). A 400/401/404 skips straight to the next provider.
+- **Agent exception:** the LangGraph agent talks to the model through LangChain's `ChatOpenAI` (tool calling), so it gets a logging callback and the SDK's own retries, but no provider fallback. Documented as partial in docs/STATUS.md.
+- **Prices** in `config.DEFAULT_PRICES` are approximate list prices used only to estimate cost; override with `LLM_PRICES_JSON`.

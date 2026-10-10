@@ -119,3 +119,76 @@ def get_database_url() -> str:
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+psycopg://", 1)
     return url
+
+
+# --- LLM providers for the reliability layer (src/llm_client.py) -------------
+@dataclass(frozen=True)
+class ProviderSettings:
+    name: str
+    kind: str  # "openai" (any OpenAI-compatible API) or "anthropic"
+    api_key: str
+    base_url: str
+    main_model: str
+    small_model: str
+
+
+# name -> (kind, base url, main model, small model). Every value can be overridden in .env
+# with <NAME>_API_BASE, <NAME>_MODEL and <NAME>_SMALL_MODEL.
+_PROVIDER_DEFAULTS = {
+    "groq": ("openai", "https://api.groq.com/openai/v1", "openai/gpt-oss-120b", "openai/gpt-oss-20b"),
+    "openai": ("openai", "https://api.openai.com/v1", "gpt-4o", "gpt-4o-mini"),
+    "together": ("openai", "https://api.together.xyz/v1", "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+                 "meta-llama/Llama-3.2-3B-Instruct-Turbo"),
+    "anthropic": ("anthropic", "", "claude-sonnet-5-5", "claude-haiku-4-5-20251001"),
+}
+
+# USD per 1M tokens (input, output). These are approximate list prices used only to
+# ESTIMATE cost; check each provider's pricing page and override with LLM_PRICES_JSON
+# (e.g. '{"gpt-4o": [2.5, 10.0]}'). A model that is not listed is logged with cost 0.
+DEFAULT_PRICES = {
+    "openai/gpt-oss-120b": (0.15, 0.75),
+    "openai/gpt-oss-20b": (0.075, 0.30),
+    "gpt-4o": (2.50, 10.00),
+    "gpt-4o-mini": (0.15, 0.60),
+    "claude-haiku-4-5-20251001": (1.00, 5.00),
+    "claude-sonnet-5-5": (3.00, 15.00),
+}
+
+
+def get_prices() -> dict[str, tuple[float, float]]:
+    prices = dict(DEFAULT_PRICES)
+    raw = os.getenv("LLM_PRICES_JSON", "").strip()
+    if raw:
+        import json
+
+        prices.update({model: tuple(pair) for model, pair in json.loads(raw).items()})
+    return prices
+
+
+def get_provider_chain() -> list[ProviderSettings]:
+    """Providers to try, in order. LLM_FALLBACK_CHAIN="openai,anthropic,groq" sets the order;
+    by default only LLM_PROVIDER is used. Providers without an API key are skipped, so a
+    half-configured chain still works."""
+    primary = os.getenv("LLM_PROVIDER", "groq").lower()
+    names = [n.strip().lower() for n in os.getenv("LLM_FALLBACK_CHAIN", "").split(",") if n.strip()] or [primary]
+    chain = []
+    for name in names:
+        if name not in _PROVIDER_DEFAULTS:
+            raise ValueError(f"Unknown provider {name!r} in LLM_FALLBACK_CHAIN; expected {list(_PROVIDER_DEFAULTS)}")
+        kind, base, main, small = _PROVIDER_DEFAULTS[name]
+        key = os.getenv(f"{name.upper()}_API_KEY", "")
+        if not key:
+            logging.getLogger(__name__).info("Provider %s has no API key; skipping it in the chain", name)
+            continue
+        main_model = os.getenv(f"{name.upper()}_MODEL") or (os.getenv("LLM_MODEL") if name == primary else None) or main
+        chain.append(
+            ProviderSettings(
+                name=name,
+                kind=kind,
+                api_key=key,
+                base_url=os.getenv(f"{name.upper()}_API_BASE", base),
+                main_model=main_model,
+                small_model=os.getenv(f"{name.upper()}_SMALL_MODEL", small),
+            )
+        )
+    return chain
