@@ -17,3 +17,8 @@ Decisions taken while extending the RAG project into the "AI Document Assistant"
 - **Decision:** `scripts/generate_reference_data.py` writes `data/reference/*.json` (50 companies, 40 labeled name pairs); `scripts/generate_synthetic_invoices.py` writes 15 invoices + `labels.json`. Both are committed so tests are reproducible.
 - **Alternatives:** hand-written fixtures; real invoices.
 - **Why:** real invoices contain personal/business data; generated ones come with exact ground truth for free.
+
+## 4. Company matching: a cascade with human review, thresholds fixed in advance
+- **Decision:** VOEN -> normalized exact name -> `rapidfuzz.token_sort_ratio` (>=0.90) -> embedding cosine (>=0.92) -> otherwise human review if the best score is >=0.75.
+- **Alternatives:** embeddings only; one blended score; a trained classifier.
+- **Why:** each step is explainable, cheap steps run first, and doubtful cases are never silently accepted. The thresholds were set before looking at results, not tuned on the 52 labeled pairs. The first version of the pair set scored a perfect 100% only because it was too easy, so harder cases (swapped words, double typos, near-miss names that are not in the table) were added.

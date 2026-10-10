@@ -94,6 +94,21 @@ def make_pairs(companies: list[dict], rng: random.Random) -> list[dict]:
         "Pristine Cleaning Services", "Orion Software Hub",
     ]:
         pairs.append({"query": name, "expected_id": None, "kind": "not_in_table"})
+    # Harder cases, added after the first version scored a suspiciously perfect 100%.
+    harder = rng.sample([c for c in companies if c not in sample], 12)
+    for company in harder[:4]:
+        *words, legal = company["name"].split()
+        pairs.append({"query": " ".join(reversed(words)) + f" {legal}", "expected_id": company["id"], "kind": "swapped_words"})
+    for company in harder[4:8]:
+        pairs.append({"query": typo(typo(company["name"], rng), rng).upper().translate(ASCII_MAP), "expected_id": company["id"],
+                      "kind": "double_typo"})
+    # Looks similar but is NOT in the table (same first word, unknown sector / unknown first word, known sector).
+    for company in harder[8:10]:
+        first, *_ = company["name"].split()
+        pairs.append({"query": f"{first} Balıqçılıq MMC", "expected_id": None, "kind": "near_miss"})
+    for company in harder[10:12]:
+        _, sector, legal = company["name"].rsplit(" ", 2) if len(company["name"].split()) == 3 else (None, company["name"].split()[-2], company["name"].split()[-1])
+        pairs.append({"query": f"Tural {sector} {legal}", "expected_id": None, "kind": "near_miss"})
     return pairs
 
 

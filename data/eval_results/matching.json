@@ -1,0 +1,141 @@
+{
+  "thresholds": {
+    "fuzzy_accept": 0.9,
+    "embedding_accept": 0.92,
+    "review": 0.75
+  },
+  "pairs": 52,
+  "accepted": 38,
+  "sent_to_human_review": 3,
+  "true_positives": 38,
+  "false_positives": 0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "by_kind": {
+    "double_typo": {
+      "pairs": 4,
+      "accepted": 4,
+      "sent_to_human_review": 0,
+      "true_positives": 4,
+      "false_positives": 0,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "exact": {
+      "pairs": 6,
+      "accepted": 6,
+      "sent_to_human_review": 0,
+      "true_positives": 6,
+      "false_positives": 0,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "near_miss": {
+      "pairs": 4,
+      "accepted": 0,
+      "sent_to_human_review": 3,
+      "true_positives": 0,
+      "false_positives": 0,
+      "precision": null,
+      "recall": null
+    },
+    "no_diacritics": {
+      "pairs": 6,
+      "accepted": 6,
+      "sent_to_human_review": 0,
+      "true_positives": 6,
+      "false_positives": 0,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "no_legal_form": {
+      "pairs": 4,
+      "accepted": 4,
+      "sent_to_human_review": 0,
+      "true_positives": 4,
+      "false_positives": 0,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "not_in_table": {
+      "pairs": 10,
+      "accepted": 0,
+      "sent_to_human_review": 0,
+      "true_positives": 0,
+      "false_positives": 0,
+      "precision": null,
+      "recall": null
+    },
+    "quotes_other_form": {
+      "pairs": 3,
+      "accepted": 3,
+      "sent_to_human_review": 0,
+      "true_positives": 3,
+      "false_positives": 0,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "swapped_words": {
+      "pairs": 4,
+      "accepted": 4,
+      "sent_to_human_review": 0,
+      "true_positives": 4,
+      "false_positives": 0,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "typo": {
+      "pairs": 5,
+      "accepted": 5,
+      "sent_to_human_review": 0,
+      "true_positives": 5,
+      "false_positives": 0,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "uppercase": {
+      "pairs": 6,
+      "accepted": 6,
+      "sent_to_human_review": 0,
+      "true_positives": 6,
+      "false_positives": 0,
+      "precision": 1.0,
+      "recall": 1.0
+    }
+  },
+  "errors": [
+    {
+      "query": "Odlar Balıqçılıq MMC",
+      "expected_id": null,
+      "got": {
+        "company_id": 17,
+        "company_name": "Odlar Tekstil MMC",
+        "score": 0.774,
+        "method": "embedding",
+        "needs_human_review": true
+      }
+    },
+    {
+      "query": "Tural Enerji MMC",
+      "expected_id": null,
+      "got": {
+        "company_id": 21,
+        "company_name": "Lənkəran Enerji MMC",
+        "score": 0.795,
+        "method": "embedding",
+        "needs_human_review": true
+      }
+    },
+    {
+      "query": "Tural Qida LLC",
+      "expected_id": null,
+      "got": {
+        "company_id": 32,
+        "company_name": "Çinar Qida LLC",
+        "score": 0.77,
+        "method": "embedding",
+        "needs_human_review": true
+      }
+    }
+  ]
+}

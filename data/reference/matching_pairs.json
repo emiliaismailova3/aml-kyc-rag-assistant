@@ -198,5 +198,65 @@
     "query": "Orion Software Hub",
     "expected_id": null,
     "kind": "not_in_table"
+  },
+  {
+    "query": "Dərman Lənkəran MMC",
+    "expected_id": 6,
+    "kind": "swapped_words"
+  },
+  {
+    "query": "Tekstil Lənkəran LLC",
+    "expected_id": 27,
+    "kind": "swapped_words"
+  },
+  {
+    "query": "Aqrar Ədalət LLC",
+    "expected_id": 48,
+    "kind": "swapped_words"
+  },
+  {
+    "query": "Logistika Kəpəz ASC",
+    "expected_id": 10,
+    "kind": "swapped_words"
+  },
+  {
+    "query": "DENIZ AQRAR MMC",
+    "expected_id": 25,
+    "kind": "double_typo"
+  },
+  {
+    "query": "LENKERAN MEBEL MMC",
+    "expected_id": 24,
+    "kind": "double_typo"
+  },
+  {
+    "query": "BAKI ARAQR LLC",
+    "expected_id": 11,
+    "kind": "double_typo"
+  },
+  {
+    "query": "MINGCEEVIR TELEKOM QSC",
+    "expected_id": 45,
+    "kind": "double_typo"
+  },
+  {
+    "query": "Odlar Balıqçılıq MMC",
+    "expected_id": null,
+    "kind": "near_miss"
+  },
+  {
+    "query": "Həyat Balıqçılıq MMC",
+    "expected_id": null,
+    "kind": "near_miss"
+  },
+  {
+    "query": "Tural Enerji MMC",
+    "expected_id": null,
+    "kind": "near_miss"
+  },
+  {
+    "query": "Tural Qida LLC",
+    "expected_id": null,
+    "kind": "near_miss"
   }
 ]
