@@ -22,7 +22,8 @@ calculator and live web search, and quality is **measured with RAGAS**, not just
 - **Tool-calling agent** (LangChain / LangGraph) that chooses between knowledge-base
   search, a sandboxed calculator and web search, with a step limit against loops.
 - **FastAPI** backend with SQLite request logging, **Streamlit** UI, **Docker Compose**.
-- **59 automated tests + lint + Docker smoke test** in CI on every push.
+- **Document-assistant extensions** (invoice extraction, company matching, pgvector, SQL agent tool, scheduled collection, voice, LLM reliability layer): see [Document-assistant extensions](#document-assistant-extensions) and the honest [status table](docs/STATUS.md).
+- **224 automated tests + lint + Docker smoke test** in CI on every push.
 - **RAGAS evaluation** (faithfulness, answer relevancy, answer correctness) on a
   15-question gold set, with the failure cases diagnosed — see [Results](#results).
 
@@ -120,6 +121,55 @@ flowchart TD
 - **API** ([`src/api.py`](src/api.py)): `POST /ask` and `POST /ask_agent` with the same
   response shape; provider rate limits come back as a clear `429`, not a bare `500`.
 
+## Document-assistant extensions
+
+On top of the RAG core, this branch adds the pieces of a small "document assistant" for a
+fintech/factoring setting. **Honest status of every piece is in [`docs/STATUS.md`](docs/STATUS.md)**;
+design choices are in [`docs/DECISIONS.md`](docs/DECISIONS.md); plain-language walkthroughs (Russian)
+with interview questions are in [`docs/learn/`](docs/learn/00-overview.md).
+
+```mermaid
+flowchart LR
+    subgraph Inputs
+        T["Text question"]
+        V["Voice question<br/>POST /ask_voice"] -->|"Whisper (faster-whisper / OpenAI)"| T
+        F["Invoice file (PDF / image)<br/>POST /invoices/extract"]
+        W["Web pages + PDFs<br/>(Celery beat + Redis)"]
+    end
+
+    T --> AG{"Agent (LangGraph)<br/>5 tools"}
+    AG -->|search_knowledge_base| VS[("Vector store<br/>Chroma  or  PostgreSQL + pgvector")]
+    AG -->|sql_query<br/>read-only, 2 views| PG[("PostgreSQL / SQLite<br/>companies, invoices, logs")]
+    AG -->|extract_invoice| EX
+    AG -->|calculator, internet_search| MISC["safe calculator / web search"]
+
+    F --> EX["Invoice pipeline<br/>text layer or OCR (Tesseract)<br/>LLM -> JSON -> Pydantic rules<br/>(2 repair retries, then human review)"]
+    EX --> M["Company matching<br/>VOEN -> name -> fuzzy -> embedding"]
+    M --> PG
+
+    W -->|"robots.txt, rate limit,<br/>clean, dedupe by hash"| VS
+
+    AG --> LLM["LLM client<br/>small/main routing, backoff + jitter,<br/>OpenAI -> Anthropic -> Groq fallback,<br/>latency / token / cost log"]
+    EX --> LLM
+    LLM -->|all providers failed| H["escalate_to_human"]
+    LLM --> ST["GET /stats<br/>p50 / p95, error rate, cost"]
+```
+
+| Feature | Run it | What was actually verified |
+|---|---|---|
+| pgvector backend (`VECTOR_BACKEND=pgvector`) | `docker compose --profile full up -d postgres` then `python -m src.vectorstore` | 2,176 chunks indexed with an HNSW cosine index and queried; integration tests against real PostgreSQL |
+| Invoice extraction | `python -m src.invoices.evaluate --kinds text` | **5/5 text-layer PDFs correct on all 6 fields.** The 10 scan/image invoices need Tesseract, which was **not installed**, so OCR accuracy is **unmeasured** |
+| Company matching | `python -m src.matching.evaluate` | 52 labeled synthetic pairs: precision 1.0, recall 1.0, 3 near-miss names sent to human review |
+| Reliability layer + `/stats` | `curl localhost:8000/stats` | Retry/fallback/routing covered by tests with scripted providers; **live-tested on Groq only** (no OpenAI/Anthropic key was available) |
+| Agent SQL + invoice tools | `python -m scripts.seed_demo_db && python -m scripts.check_agent_routing` | 6/6 routing scenarios with correct answers on SQLite; 3/3 SQL scenarios on PostgreSQL via the read-only role |
+| Scheduled collection | `celery -A src.collector.tasks worker --pool=solo` | Real Redis + worker: 2 pages ingested, the second run reported duplicates and added nothing |
+| Voice questions | `curl -F "file=@q.wav" localhost:8000/ask_voice` | Speech-to-text pipeline runs; **recognition accuracy is unmeasured** |
+
+**Limitations to know about:** all invoice and company data is synthetic and fictional; the agent has no
+provider fallback (it logs through a callback); the Anthropic/OpenAI fallback is tested with mocks only;
+the SQL tool rejects `WITH`/`UNION` queries; the RAGAS table above was measured on the Chroma backend and the agent
+has not been re-scored with the new tools.
+
 ## Results
 
 RAGAS on the 15-question gold set ([`data/eval_questions.json`](data/eval_questions.json));
@@ -152,9 +202,12 @@ Groq-specific RAGAS issues, are in [`docs/NOTES.md`](docs/NOTES.md).
 
 ```bash
 python -m src.vectorstore        # retrieval tests query the real index
-pytest -k "not internet_search"  # 59 tests; no LLM key needed (LLM calls are mocked)
+pytest -k "not internet_search"  # 224 tests; no LLM key needed (LLM calls are mocked)
 ruff check src tests
 ```
+
+Tests marked `postgres` / `redis` need `docker compose --profile full up -d postgres redis` and are
+skipped automatically when those services are not reachable (all 224 passed locally with them running).
 
 CI ([`.github/workflows/tests.yml`](.github/workflows/tests.yml)) runs the tests and
 lint, then builds the Docker image and boots API + UI with `docker compose up --wait`
@@ -193,7 +246,14 @@ src/
   streamlit_app.py  demo UI
   logging_db.py     SQLite request logging
   evaluate.py       RAGAS evaluation (resumable)
-tests/              59 tests
+  llm_client.py     LLM wrapper: routing, retry, fallback chain, cost logging
+  db.py, pgvector_store.py   SQLAlchemy tables and the PostgreSQL + pgvector backend
+  sql_tool.py       read-only SQL guard for the agent
+  invoices/         OCR / text layer, LLM extraction, validation, evaluation
+  matching/         company-name matching and its evaluation
+  collector/        Celery tasks: fetch, clean, dedupe, ingest
+  voice.py          speech-to-text for /ask_voice
+tests/              224 tests
 docs/               demo GIF, screenshots, engineering notes
 Dockerfile, docker-compose.yml, docker/entrypoint.sh
 ```
