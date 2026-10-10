@@ -51,3 +51,9 @@ Decisions taken while extending the RAG project into the "AI Document Assistant"
 - **Demo sources** are two Wikipedia pages (CC BY-SA, crawling allowed) and one small W3C PDF, because regulator sites (FATF returned 403, CBAR has no robots.txt) are not reliably crawlable.
 - **Worker storage:** the Docker worker writes to PostgreSQL/pgvector, since Chroma is not safe for concurrent writers.
 - **Rate limiter** is in-process memory, which is correct for one worker; several workers would need a Redis-based limiter (not done).
+
+## 9. Voice: Whisper behind one function, transcript always returned
+- **Decision:** `src/voice.py` exposes `transcribe()`; `WHISPER_PROVIDER=local` (faster-whisper, CPU, int8, VAD filter) or `openai` (whisper-1). `POST /ask_voice` returns the transcript together with the agent's answer.
+- **Alternatives:** browser-side speech recognition; always the paid API; no voice at all.
+- **Why:** local keeps audio on the machine and costs nothing; the API is a one-line switch. Returning the transcript lets a person notice a misheard question, which is the main failure mode of voice input.
+- **Dependency note:** `faster-whisper` lives in `requirements-voice.txt` (heavy, optional), with `av` pinned to 16.1.0 because faster-whisper 1.2.1 breaks with PyAV 19.

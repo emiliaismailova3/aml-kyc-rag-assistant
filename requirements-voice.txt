@@ -1,2 +1,4 @@
 # Optional: local speech-to-text for POST /ask_voice (downloads a Whisper model on first use)
 faster-whisper==1.2.1
+# faster-whisper 1.2.1 fails with the newest PyAV (19.x: unexpected keyword "metadata_errors")
+av==16.1.0

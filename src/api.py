@@ -17,7 +17,8 @@ import time
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from openai import APIError, RateLimitError
 from pydantic import BaseModel, Field
@@ -29,6 +30,7 @@ from src.llm_client import LLMUnavailable
 from src.llm_stats import get_stats
 from src.logging_db import log_request
 from src.rag import RAGPipeline
+from src.voice import AUDIO_SUFFIXES, MAX_AUDIO_BYTES, VoiceUnavailable, transcribe
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +199,33 @@ async def extract_invoice_endpoint(file: Annotated[UploadFile, File()]) -> Extra
                     status_code=503, detail="OCR is unavailable: the Tesseract binary is not installed."
                 ) from exc
             raise
+
+
+class VoiceResponse(AskResponse):
+    transcript: str
+
+
+@app.post("/ask_voice", response_model=VoiceResponse)
+async def ask_voice(
+    file: Annotated[UploadFile, File()], language: Annotated[str | None, Form()] = None
+) -> VoiceResponse:
+    """Spoken question: audio -> Whisper -> the same agent as /ask_agent.
+    `language` is an optional ISO code such as "en" or "az"; by default Whisper detects it."""
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in AUDIO_SUFFIXES:
+        raise HTTPException(status_code=415, detail=f"Upload audio in one of: {', '.join(sorted(AUDIO_SUFFIXES))}")
+    audio = await file.read()
+    if len(audio) > MAX_AUDIO_BYTES:
+        raise HTTPException(status_code=413, detail="Audio is larger than 25 MB.")
+    try:
+        transcript = await run_in_threadpool(transcribe, audio, file.filename or f"audio{suffix}", language)
+    except VoiceUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not transcript:
+        raise HTTPException(status_code=422, detail="No speech could be recognised in the audio.")
+
+    answer = await run_in_threadpool(ask_agent, AskRequest(question=transcript))
+    return VoiceResponse(**answer.model_dump(), transcript=transcript)
 
 
 @app.get("/stats")
