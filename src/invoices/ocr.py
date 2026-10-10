@@ -8,6 +8,8 @@ Order of preference:
 from __future__ import annotations
 
 import logging
+import os
+import shutil
 from pathlib import Path
 
 import cv2
@@ -62,10 +64,24 @@ def _deskew(gray: np.ndarray) -> np.ndarray:
     )
 
 
+def _configure_tesseract() -> None:
+    """Find the Tesseract program: TESSERACT_CMD from .env/environment first, then the usual
+    Windows install folder (the installer does not add it to PATH)."""
+    import pytesseract
+
+    command = os.getenv("TESSERACT_CMD", "").strip()
+    default_windows = Path("C:/Program Files/Tesseract-OCR/tesseract.exe")
+    if command:
+        pytesseract.pytesseract.tesseract_cmd = command
+    elif shutil.which("tesseract") is None and default_windows.exists():
+        pytesseract.pytesseract.tesseract_cmd = str(default_windows)
+
+
 def _ocr_languages() -> str:
     """Use eng+aze if the Azerbaijani model is installed, otherwise English only."""
     import pytesseract
 
+    _configure_tesseract()
     installed = set(pytesseract.get_languages(config=""))
     wanted = [lang for lang in OCR_LANGUAGES.split("+") if lang in installed]
     if "aze" not in wanted:
@@ -76,6 +92,7 @@ def _ocr_languages() -> str:
 def ocr_image(image: Image.Image) -> str:
     import pytesseract
 
+    _configure_tesseract()
     return pytesseract.image_to_string(preprocess(image), lang=_ocr_languages())
 
 

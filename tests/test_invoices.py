@@ -197,3 +197,16 @@ def test_endpoint_returns_structured_invoice(monkeypatch):
 def test_endpoint_rejects_unsupported_file_type():
     response = client.post("/invoices/extract", files={"file": ("notes.txt", b"hi", "text/plain")})
     assert response.status_code == 415
+
+
+# --- Tesseract discovery ---------------------------------------------------------
+
+def test_tesseract_command_can_be_set_from_the_environment(monkeypatch):
+    import pytesseract
+
+    from src.invoices.ocr import _configure_tesseract
+
+    monkeypatch.setenv("TESSERACT_CMD", "C:/somewhere/tesseract.exe")
+    monkeypatch.setattr(pytesseract.pytesseract, "tesseract_cmd", "tesseract")
+    _configure_tesseract()
+    assert pytesseract.pytesseract.tesseract_cmd == "C:/somewhere/tesseract.exe"

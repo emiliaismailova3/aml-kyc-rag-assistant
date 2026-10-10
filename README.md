@@ -23,7 +23,7 @@ calculator and live web search, and quality is **measured with RAGAS**, not just
   search, a sandboxed calculator and web search, with a step limit against loops.
 - **FastAPI** backend with SQLite request logging, **Streamlit** UI, **Docker Compose**.
 - **Document-assistant extensions** (invoice extraction, company matching, pgvector, SQL agent tool, scheduled collection, voice, LLM reliability layer): see [Document-assistant extensions](#document-assistant-extensions) and the honest [status table](docs/STATUS.md).
-- **224 automated tests + lint + Docker smoke test** in CI on every push.
+- **225 automated tests + lint + Docker smoke test** in CI on every push.
 - **RAGAS evaluation** (faithfulness, answer relevancy, answer correctness) on a
   15-question gold set, with the failure cases diagnosed — see [Results](#results).
 
@@ -158,7 +158,7 @@ flowchart LR
 | Feature | Run it | What was actually verified |
 |---|---|---|
 | pgvector backend (`VECTOR_BACKEND=pgvector`) | `docker compose --profile full up -d postgres` then `python -m src.vectorstore` | 2,176 chunks indexed with an HNSW cosine index and queried; integration tests against real PostgreSQL |
-| Invoice extraction | `python -m src.invoices.evaluate --kinds text` | **5/5 text-layer PDFs correct on all 6 fields.** The 10 scan/image invoices need Tesseract, which was **not installed**, so OCR accuracy is **unmeasured** |
+| Invoice extraction | `python -m src.invoices.evaluate` (needs Tesseract for scans) | 15 synthetic invoices incl. 10 scans/images through real Tesseract (`eng+aze`): VOEN, number, date, total, currency **100%**; company name **86.7%** (OCR dropped diacritics in 2 names; the matcher still resolves both). Synthetic single-template data only |
 | Company matching | `python -m src.matching.evaluate` | 52 labeled synthetic pairs: precision 1.0, recall 1.0, 3 near-miss names sent to human review |
 | Reliability layer + `/stats` | `curl localhost:8000/stats` | Retry/fallback/routing covered by tests with scripted providers; **live-tested on Groq only** (no OpenAI/Anthropic key was available) |
 | Agent SQL + invoice tools | `python -m scripts.seed_demo_db && python -m scripts.check_agent_routing` | 6/6 routing scenarios with correct answers on SQLite; 3/3 SQL scenarios on PostgreSQL via the read-only role |
@@ -202,12 +202,12 @@ Groq-specific RAGAS issues, are in [`docs/NOTES.md`](docs/NOTES.md).
 
 ```bash
 python -m src.vectorstore        # retrieval tests query the real index
-pytest -k "not internet_search"  # 224 tests; no LLM key needed (LLM calls are mocked)
+pytest -k "not internet_search"  # 225 tests; no LLM key needed (LLM calls are mocked)
 ruff check src tests
 ```
 
 Tests marked `postgres` / `redis` need `docker compose --profile full up -d postgres redis` and are
-skipped automatically when those services are not reachable (all 224 passed locally with them running).
+skipped automatically when those services are not reachable (all 225 passed locally with them running).
 
 CI ([`.github/workflows/tests.yml`](.github/workflows/tests.yml)) runs the tests and
 lint, then builds the Docker image and boots API + UI with `docker compose up --wait`
@@ -253,7 +253,7 @@ src/
   matching/         company-name matching and its evaluation
   collector/        Celery tasks: fetch, clean, dedupe, ingest
   voice.py          speech-to-text for /ask_voice
-tests/              224 tests
+tests/              225 tests
 docs/               demo GIF, screenshots, engineering notes
 Dockerfile, docker-compose.yml, docker/entrypoint.sh
 ```
