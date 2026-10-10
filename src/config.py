@@ -99,3 +99,23 @@ def get_embedding_config() -> EmbeddingConfig:
 
 CHROMA_PERSIST_DIR = PROJECT_ROOT / os.getenv("CHROMA_PERSIST_DIR", "data/chroma_db")
 CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "aml_kyc_knowledge_base")
+
+
+# --- Database / vector backend ---------------------------------------------
+# VECTOR_BACKEND selects where document chunks are stored and searched:
+#   chroma   - local Chroma folder (default, zero setup)
+#   pgvector - PostgreSQL with the pgvector extension (needs DATABASE_URL)
+VECTOR_BACKEND = os.getenv("VECTOR_BACKEND", "chroma").lower()
+EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "384"))  # bge-small-en-v1.5 -> 384
+
+
+def get_database_url() -> str:
+    """DATABASE_URL for invoices / companies / logs. Falls back to a local SQLite file
+    so everything works without PostgreSQL."""
+    url = os.getenv("DATABASE_URL", "").strip()
+    if not url:
+        return f"sqlite:///{(PROJECT_ROOT / 'logs' / 'app.db').as_posix()}"
+    # SQLAlchemy needs to be told to use the psycopg (v3) driver.
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return url

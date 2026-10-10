@@ -31,3 +31,40 @@ services:
     depends_on:
       api:
         condition: service_healthy
+
+  # --- Optional services for the document-assistant features -----------------
+  # Not started by a plain `docker compose up` (so the existing quickstart and CI
+  # smoke test are unchanged). Start them with:
+  #   docker compose --profile full up -d postgres redis
+  postgres:
+    image: pgvector/pgvector:pg16
+    profiles: ["full"]
+    environment:
+      POSTGRES_USER: assistant
+      POSTGRES_PASSWORD: assistant
+      POSTGRES_DB: assistant
+      POSTGRES_RO_PASSWORD: assistant_ro
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U assistant -d assistant"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["full"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

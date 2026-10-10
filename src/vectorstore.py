@@ -20,7 +20,7 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
-from src.config import CHROMA_COLLECTION_NAME, CHROMA_PERSIST_DIR, get_embedding_config
+from src.config import CHROMA_COLLECTION_NAME, CHROMA_PERSIST_DIR, VECTOR_BACKEND, get_embedding_config
 from src.ingest import ingest
 
 logger = logging.getLogger(__name__)
@@ -65,8 +65,9 @@ def _build_embeddings(config) -> Embeddings:
     )
 
 
-def build_vectorstore(chunks: list[Document] | None = None, reset: bool = True) -> Chroma:
-    """Embed chunks and persist them to the Chroma vector store.
+def build_vectorstore(chunks: list[Document] | None = None, reset: bool = True):
+    """Embed chunks and persist them to the configured vector store
+    (Chroma by default, PostgreSQL + pgvector when VECTOR_BACKEND=pgvector).
 
     If chunks is None, runs the full ingestion pipeline (load PDFs + split)
     first. If reset is True (default), any existing collection with the same
@@ -77,6 +78,17 @@ def build_vectorstore(chunks: list[Document] | None = None, reset: bool = True) 
         chunks = ingest()
 
     embeddings = get_embeddings()
+
+    if VECTOR_BACKEND == "pgvector":
+        from src.pgvector_store import PGVectorStore
+
+        store = PGVectorStore(embeddings)
+        if reset:
+            store.reset()
+        count = store.add_documents(chunks)
+        logger.info("Persisted %d chunks to PostgreSQL (pgvector)", count)
+        return store
+
     CHROMA_PERSIST_DIR.mkdir(parents=True, exist_ok=True)
 
     if reset:
@@ -110,14 +122,23 @@ def build_vectorstore(chunks: list[Document] | None = None, reset: bool = True) 
     return store
 
 
-def load_vectorstore() -> Chroma:
-    """Load the already-persisted Chroma vector store (does not re-index).
+def load_vectorstore():
+    """Load the already-persisted vector store (does not re-index).
 
     The handle is cached and shared by the RAG pipeline and the agent's
     knowledge-base tool, so the embedding model and the Chroma client are
     opened once per process rather than once per question / tool call.
     """
+    if VECTOR_BACKEND == "pgvector":
+        return _load_pgvector_cached(get_embedding_config())
     return _load_vectorstore_cached(get_embedding_config())
+
+
+@lru_cache(maxsize=4)
+def _load_pgvector_cached(config):
+    from src.pgvector_store import PGVectorStore
+
+    return PGVectorStore(_build_embeddings(config))
 
 
 @lru_cache(maxsize=4)

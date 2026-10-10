@@ -8,6 +8,10 @@ ignore = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "postgres: needs a reachable PostgreSQL with pgvector (skipped otherwise)",
+    "redis: needs a reachable Redis server (skipped otherwise)",
+]
 filterwarnings = [
     # langchain-community announces its own sunset on import; it's still the
     # source of PyPDFLoader (see README, Known limitations).

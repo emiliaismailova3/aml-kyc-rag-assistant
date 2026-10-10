@@ -22,3 +22,8 @@ Decisions taken while extending the RAG project into the "AI Document Assistant"
 - **Decision:** VOEN -> normalized exact name -> `rapidfuzz.token_sort_ratio` (>=0.90) -> embedding cosine (>=0.92) -> otherwise human review if the best score is >=0.75.
 - **Alternatives:** embeddings only; one blended score; a trained classifier.
 - **Why:** each step is explainable, cheap steps run first, and doubtful cases are never silently accepted. The thresholds were set before looking at results, not tuned on the 52 labeled pairs. The first version of the pair set scored a perfect 100% only because it was too easy, so harder cases (swapped words, double typos, near-miss names that are not in the table) were added.
+
+## 5. One SQLAlchemy layer for SQLite and PostgreSQL; pgvector only for chunks
+- **Decision:** relational tables (companies, invoices, request_logs, llm_calls, collected_documents) are defined once with SQLAlchemy Core. `DATABASE_URL` empty -> SQLite file, set -> PostgreSQL. Only the `chunks` table with its `vector(384)` column and HNSW index is PostgreSQL-specific.
+- **Alternatives:** an ORM (heavier); raw psycopg everywhere (two SQL dialects to maintain); require Postgres for everything.
+- **Why:** tests and the quickstart need no database server, and the same code runs on both. Postgres/Redis are opt-in through a docker-compose profile so the existing CI smoke test is unchanged.
