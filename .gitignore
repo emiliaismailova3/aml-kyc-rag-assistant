@@ -46,3 +46,6 @@ data/eval_results/*
 !data/eval_results/invoice_extraction.json
 !data/eval_results/matching.json
 !data/eval_results/agent_routing.json
+
+# Personal voice recordings used to test /ask_voice
+WhatsApp Audio*
