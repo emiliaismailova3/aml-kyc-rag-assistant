@@ -26,7 +26,7 @@ says plainly what was **not** run. Numbers come from `data/eval_results/*.json` 
 - **The RAGAS table was not re-run on pgvector and the agent was not re-scored** after the new tools were added. The agent
   RAGAS evaluation was started on `main` (3 tools, 4 chunks per search) and stopped by Groq's daily quota; its partial
   cache is from that agent, so re-run it from scratch on whichever branch you present.
-- **Voice quality is only spot-checked** (2 recordings, no WER): one phrase was exact, one word was misheard by both Whisper sizes. Azerbaijani speech was not tested.
+- **Voice quality is measured only on 5 phrases from one speaker** (Whisper `base`, `scripts/check_voice.py`): mean WER 0.15 for English (3 phrases) and 0.39 for Azerbaijani (2 phrases). Mistakes: "450" heard as "550", "ownership" as "overmanship", Azerbaijani `ə` written as `e`. With no language hint Whisper auto-detected one English phrase as another language (garbage output). Too small for any accuracy claim; no noise, accents or other speakers were tested.
 - **Docker:** the image builds with all new dependencies (built locally, and the CI `docker` job that boots API + UI is green on this
   branch). The `worker` and `beat` *containers* were never started: only `docker compose config` validation, plus a worker run directly on the host.
 - **Added on `feature/vacancy-gaps` (streaming, translation, summarization, MCP): tested with scripted providers, not against a live LLM**

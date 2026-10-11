@@ -1,0 +1,48 @@
+{
+  "phrases_scored": 5,
+  "missing_recordings": [],
+  "rows": [
+    {
+      "file": "en_1.wav",
+      "language": "en",
+      "reference": "What is beneficial ownership?",
+      "heard": "What is beneficial overmanship?",
+      "wer": 0.25,
+      "seconds": 4.5
+    },
+    {
+      "file": "en_2.wav",
+      "language": "en",
+      "reference": "What is 450 times 37?",
+      "heard": "What is 550 times 37?",
+      "wer": 0.2,
+      "seconds": 1.5
+    },
+    {
+      "file": "en_3.wav",
+      "language": "en",
+      "reference": "How many invoices are in the database?",
+      "heard": "How many invoices are in the database?",
+      "wer": 0.0,
+      "seconds": 1.6
+    },
+    {
+      "file": "az_1.wav",
+      "language": "az",
+      "reference": "Faktorinq nədir?",
+      "heard": "Faktirink nədir?",
+      "wer": 0.5,
+      "seconds": 1.5
+    },
+    {
+      "file": "az_2.wav",
+      "language": "az",
+      "reference": "Bu müştəri üçün hansı sənədlər tələb olunur?",
+      "heard": "Bu müşteri üçün hansı senedler tələb olunur.",
+      "wer": 0.286,
+      "seconds": 1.7
+    }
+  ],
+  "mean_wer_az": 0.393,
+  "mean_wer_en": 0.15
+}
