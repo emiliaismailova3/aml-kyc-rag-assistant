@@ -1,0 +1,101 @@
+{
+  "aggregate": {
+    "faithfulness": 0.6192592592592593,
+    "answer_relevancy": 0.6122665400269816,
+    "answer_correctness": 0.4239403421449105
+  },
+  "questions_fully_scored": 15,
+  "questions_total": 15,
+  "per_question": [
+    {
+      "id": "q01",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.9552538313308497,
+      "answer_correctness": 0.75922449866792
+    },
+    {
+      "id": "q02",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.0,
+      "answer_correctness": 0.14998406233811679
+    },
+    {
+      "id": "q03",
+      "faithfulness": 0.8888888888888888,
+      "answer_relevancy": 0.8890902264517796,
+      "answer_correctness": 0.313019310448753
+    },
+    {
+      "id": "q04",
+      "faithfulness": 0.9,
+      "answer_relevancy": 0.9747172350924256,
+      "answer_correctness": 0.3227797348353687
+    },
+    {
+      "id": "q05",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.0,
+      "answer_correctness": 0.1257639485437516
+    },
+    {
+      "id": "q06",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.929180894886916,
+      "answer_correctness": 0.7070590886438445
+    },
+    {
+      "id": "q07",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.0,
+      "answer_correctness": 0.1260725419909353
+    },
+    {
+      "id": "q08",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.9490571259364867,
+      "answer_correctness": 0.6167445696739777
+    },
+    {
+      "id": "q09",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.9936338988536723,
+      "answer_correctness": 0.49539682605969076
+    },
+    {
+      "id": "q10",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.0,
+      "answer_correctness": 0.13854650839841573
+    },
+    {
+      "id": "q11",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.872944764874973,
+      "answer_correctness": 0.609887293123732
+    },
+    {
+      "id": "q12",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.8321326875246369,
+      "answer_correctness": 0.7734822239887673
+    },
+    {
+      "id": "q13",
+      "faithfulness": 0.8333333333333334,
+      "answer_relevancy": 0.9000984022500722,
+      "answer_correctness": 0.28037092542662323
+    },
+    {
+      "id": "q14",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.0,
+      "answer_correctness": 0.13462662705907424
+    },
+    {
+      "id": "q15",
+      "faithfulness": 0.6666666666666666,
+      "answer_relevancy": 0.8878890332029115,
+      "answer_correctness": 0.8061469729746862
+    }
+  ]
+}

@@ -167,35 +167,47 @@ flowchart LR
 
 **Limitations to know about:** all invoice and company data is synthetic and fictional; the agent has no
 provider fallback (it logs through a callback); the Anthropic/OpenAI fallback is tested with mocks only;
-the SQL tool rejects `WITH`/`UNION` queries; the RAGAS table above was measured on the Chroma backend and the agent
+the SQL tool rejects `WITH`/`UNION` queries; the RAGAS tables in Results below were measured on the Chroma backend and the agent
 has not been re-scored with the new tools.
 
 ## Results
 
 RAGAS on the 15-question gold set ([`data/eval_questions.json`](data/eval_questions.json));
-judge `openai/gpt-oss-120b` via Groq, local `bge-small` embeddings.
+one run per setting, judge `openai/gpt-oss-120b` via Groq (same judge for both), local `bge-small`
+embeddings. Raw per-question scores: [`rag_ragas_results.json`](data/eval_results/rag_ragas_results.json) (k=8)
+and [`rag_k4_baseline_ragas_results.json`](data/eval_results/rag_k4_baseline_ragas_results.json) (k=4).
 
-| Metric | Base RAG, top-k=4 (all 15 questions) | Base RAG, top-k=4 (10 answered) |
+| Metric (all 15 questions) | Base RAG, top-k=4 (before) | Base RAG, top-k=8 (now) |
 |---|---|---|
-| faithfulness | 0.619 | 0.93 |
-| answer_relevancy | 0.612 | 0.92 |
-| answer_correctness | 0.424 | — |
+| faithfulness | 0.619 | **0.831** |
+| answer_relevancy | 0.612 | **0.840** |
+| answer_correctness | 0.424 | **0.597** |
+| questions refused ("I don't know") | 5 of 15 (q02, q05, q07, q10, q14) | **1 of 15 (q07)** |
 
-**What the numbers say.** When the pipeline answers, the answer is almost always
-supported by the retrieved text (0.93 faithfulness). The weak spot is **recall**: it
-refused 5 of 15 questions whose answers *are* in the corpus, and RAGAS scores a
-refusal as 0, which pulls the overall averages down.
+RAGAS scores a refusal as 0, so every refused question drags the averages down.
 
-**Diagnosis and fix.** For every refused question the right *document* ranked first,
-but the passage with the answer sat just below the top 4 chunks (e.g. the FATF CDD
-passage ranked 8th). Raising the default to **top-k=8** fixed 2 of the 5 refusals in a
-spot check (q02, q05). One question (q10) never surfaces its passage in the top 20,
-which points to a PDF text-extraction issue rather than ranking.
+**What the numbers say.**
+- The main problem at k=4 was **recall, not hallucination**: for the 5 refused questions the answer *was* in the
+  corpus, but its passage sat just below the top 4 chunks, so the model correctly said it had no context.
+  Raising k to 8 fixed 4 of the 5 (q02, q05, q10, q14).
+- Only the questions that were actually answered: k=4 scored 0.93 / 0.92 / 0.57 (10 questions) and k=8 scores
+  0.89 / 0.90 / 0.63 (14 questions). Faithfulness and relevancy are slightly **lower** at k=8: the four newly
+  answered questions include weaker ones (e.g. q05 faithfulness 0.67), and more context gives the model more
+  room to add unsupported detail. Correctness is higher because fewer answers are refusals.
+- **Answer correctness (0.60) is the weakest metric.** The lowest answered questions are q03 (0.37) and q10 (0.34):
+  these answers are grounded in the text but do not match the reference answer well; I have not diagnosed why.
+- The one remaining refusal (q07, sanctions-screening controls) has not been investigated.
+- This is one run on 15 questions with an LLM judge, so differences of a few hundredths are within noise; the
+  jump in refusals (5 to 1) is the result I would trust.
 
-**Next steps:** re-score base RAG at k=8 and score the agentic pipeline on the same
-set (`python -m src.evaluate --pipeline both`; the run is resumable because Groq's free
-tier allows roughly one pipeline per day), then try hybrid BM25 + vector search and a
-re-ranker for the remaining misses. Engineering notes from the evaluation, including
+**The agentic pipeline has not been scored by RAGAS.** Its quota-limited evaluation was stopped (Groq's free tier
+allows roughly one pipeline per day, and also limits a single request to 8,000 tokens, which forced the agent to
+retrieve 4 chunks instead of 8). It was checked instead on routing scenarios: 6 of 6 new-tool scenarios
+(SQL, invoice extraction) chose the right tool and returned the correct answer
+([`agent_routing.json`](data/eval_results/agent_routing.json)).
+
+**Next steps:** score the agent with RAGAS on the same set, investigate q07 and the low-correctness answers,
+then try hybrid BM25 + vector search and a re-ranker. Engineering notes from the evaluation, including
 Groq-specific RAGAS issues, are in [`docs/NOTES.md`](docs/NOTES.md).
 
 ## Testing
@@ -220,8 +232,8 @@ Streamlit UI (via `AppTest`), and the evaluation's resume/caching logic.
 
 ## Known limitations
 
-- The agent's answers haven't been scored by RAGAS yet (see *Next steps*), and the
-  base-RAG table is the k=4 baseline.
+- The agent's answers haven't been scored by RAGAS yet (see *Results*). The base-RAG numbers come from
+  a single run on 15 questions.
 - PDF extraction occasionally mangles curly quotes in Word-exported PDFs (`'` → `�`);
   cosmetic, retrieval isn't affected.
 - Two FATF documents (VASP guidance, 2023 Azerbaijan Mutual Evaluation Report)
