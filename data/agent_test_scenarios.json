@@ -1,10 +1,10 @@
 {
-  "description": "Test scenarios for the agentic layer (Step 7). Ten scenarios total: five that require the agent to invoke a tool (calculator or web search) because the answer cannot come from the AML/KYC knowledge base, and five that should be answered from the knowledge base alone (the agent should NOT call a tool). Used by tests/test_agent.py and src/evaluate.py to check that the agent routes correctly and does not, e.g., hallucinate a web search result for a question the RAG pipeline can already answer, or try to answer a live/numeric question from stale document context.",
+  "description": "Test scenarios for the agentic layer (Step 7). Ten scenarios total: five that require the agent to invoke a tool (calculator or web search) because the answer cannot come from the AML/KYC knowledge base, and five that should be answered from the knowledge base alone (the agent should NOT call a tool). Used by tests/test_agent.py and src/evaluate.py to check that the agent routes correctly and does not, e.g., hallucinate a web search result for a question the RAG pipeline can already answer, or try to answer a live/numeric question from stale document context. Scenarios t11-t16 were added for the sql_query and extract_invoice tools (they need the demo database from scripts/seed_demo_db.py).",
   "schema": {
     "id": "short stable identifier",
     "question": "the question asked to the agent",
     "expected_route": "'tool' if the agent should call a tool (and which one), or 'rag' if it should answer from the knowledge base alone",
-    "expected_tool": "calculator | internet_search | null (null for rag-routed scenarios)",
+    "expected_tool": "calculator | internet_search | sql_query | extract_invoice | null (null for rag-routed scenarios)",
     "ground_truth": "reference answer, or reference approach when the exact numeric/live value cannot be pinned down in advance",
     "notes": "why this scenario is expected to route the way it does"
   },
@@ -88,6 +88,54 @@
       "expected_tool": null,
       "ground_truth": "By checking CBAR's public registry of licensed payment and e-money institutions published on cbar.az. See data/eval_questions.json:q12.",
       "notes": "Directly answerable from cbar_notice_unlicensed_payment_institutions.pdf; no tool required."
+    },
+    {
+      "id": "t11",
+      "question": "How many invoices in the database are in EUR, and what is their combined total?",
+      "expected_route": "tool",
+      "expected_tool": "sql_query",
+      "ground_truth": "4 invoices, combined total 38530.64 EUR (from the 15 seeded demo invoices; see scripts/seed_demo_db.py).",
+      "notes": "Aggregation over stored business data: needs SQL, not the knowledge base."
+    },
+    {
+      "id": "t12",
+      "question": "Which company issued the invoice with the numerically largest total amount in the database, and how much was it?",
+      "expected_route": "tool",
+      "expected_tool": "sql_query",
+      "ground_truth": "\"Aygün Ticarət\" ASC with 27560.73 EUR.",
+      "notes": "Sorting/limiting over v_invoices."
+    },
+    {
+      "id": "t13",
+      "question": "How many stored invoices are flagged as needing human review?",
+      "expected_route": "tool",
+      "expected_tool": "sql_query",
+      "ground_truth": "0 (none of the seeded demo invoices is flagged).",
+      "notes": "Count with a boolean filter."
+    },
+    {
+      "id": "t14",
+      "question": "Extract the data from the invoice file inv_01_text.pdf: who is the seller and what is the total?",
+      "expected_route": "tool",
+      "expected_tool": "extract_invoice",
+      "ground_truth": "Seller Lənkəran Enerji MMC, total 12620.60 AZN.",
+      "notes": "A named invoice file must be read with extract_invoice (text-layer PDF, no OCR needed)."
+    },
+    {
+      "id": "t15",
+      "question": "Read the invoice inv_03_text.pdf and tell me its invoice number and currency.",
+      "expected_route": "tool",
+      "expected_tool": "extract_invoice",
+      "ground_truth": "Invoice number INV-2026-0796, currency EUR.",
+      "notes": "Second extract_invoice scenario."
+    },
+    {
+      "id": "t16",
+      "question": "What does FATF say a politically exposed person (PEP) is?",
+      "expected_route": "rag",
+      "expected_tool": null,
+      "ground_truth": "Answered from the FATF/Wolfsberg PEP guidance in the knowledge base.",
+      "notes": "Sounds like it could be data, but it is a policy question: the agent must NOT use sql_query or extract_invoice."
     }
   ]
 }

@@ -12,15 +12,25 @@ Run with:
 from __future__ import annotations
 
 import logging
+import tempfile
 import time
+from pathlib import Path
+from typing import Annotated
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import JSONResponse
 from openai import APIError, RateLimitError
 from pydantic import BaseModel, Field
 
 from src.agent import AgentPipeline
+from src.invoices.extract import ExtractionResult, extract_invoice
+from src.invoices.ocr import IMAGE_SUFFIXES
+from src.llm_client import LLMUnavailable
+from src.llm_stats import get_stats
 from src.logging_db import log_request
 from src.rag import RAGPipeline
+from src.voice import AUDIO_SUFFIXES, MAX_AUDIO_BYTES, VoiceUnavailable, transcribe
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +96,15 @@ def _llm_http_error(exc: Exception) -> HTTPException:
             "Please try again later.",
         )
     return HTTPException(status_code=502, detail=f"The LLM provider returned an error: {exc}")
+
+
+@app.exception_handler(LLMUnavailable)
+async def llm_unavailable_handler(request: Request, exc: LLMUnavailable) -> JSONResponse:
+    """Every provider in the fallback chain failed: tell the client, and flag it for a human."""
+    return JSONResponse(
+        status_code=429 if exc.rate_limited else 503,
+        content={"detail": str(exc), "escalate_to_human": True},
+    )
 
 
 @app.get("/health")
@@ -156,3 +175,60 @@ def ask_agent(request: AskRequest) -> AskResponse:
         tool_calls=result["tool_calls"],
         latency_ms=latency_ms,
     )
+
+
+@app.post("/invoices/extract", response_model=ExtractionResult)
+async def extract_invoice_endpoint(file: Annotated[UploadFile, File()]) -> ExtractionResult:
+    """Upload an invoice (PDF or image); get back validated structured data,
+    or needs_human_review=true if the LLM could not produce a valid result."""
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix != ".pdf" and suffix not in IMAGE_SUFFIXES:
+        raise HTTPException(status_code=415, detail="Upload a PDF or an image (png, jpg, tiff).")
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / f"upload{suffix}"
+        path.write_bytes(await file.read())
+        try:
+            return extract_invoice(path)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except APIError as exc:
+            raise _llm_http_error(exc) from exc
+        except Exception as exc:  # noqa: BLE001 - OCR engine missing etc.
+            if type(exc).__name__ == "TesseractNotFoundError":
+                raise HTTPException(
+                    status_code=503, detail="OCR is unavailable: the Tesseract binary is not installed."
+                ) from exc
+            raise
+
+
+class VoiceResponse(AskResponse):
+    transcript: str
+
+
+@app.post("/ask_voice", response_model=VoiceResponse)
+async def ask_voice(
+    file: Annotated[UploadFile, File()], language: Annotated[str | None, Form()] = None
+) -> VoiceResponse:
+    """Spoken question: audio -> Whisper -> the same agent as /ask_agent.
+    `language` is an optional ISO code such as "en" or "az"; by default Whisper detects it."""
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in AUDIO_SUFFIXES:
+        raise HTTPException(status_code=415, detail=f"Upload audio in one of: {', '.join(sorted(AUDIO_SUFFIXES))}")
+    audio = await file.read()
+    if len(audio) > MAX_AUDIO_BYTES:
+        raise HTTPException(status_code=413, detail="Audio is larger than 25 MB.")
+    try:
+        transcript = await run_in_threadpool(transcribe, audio, file.filename or f"audio{suffix}", language)
+    except VoiceUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not transcript:
+        raise HTTPException(status_code=422, detail="No speech could be recognised in the audio.")
+
+    answer = await run_in_threadpool(ask_agent, AskRequest(question=transcript))
+    return VoiceResponse(**answer.model_dump(), transcript=transcript)
+
+
+@app.get("/stats")
+def stats() -> dict:
+    """Latency percentiles, error rate and estimated cost of the recorded LLM calls."""
+    return get_stats()

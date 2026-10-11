@@ -1,0 +1,62 @@
+[
+  {
+    "id": "t11",
+    "expected_tool": "sql_query",
+    "tools_used": [
+      "sql_query"
+    ],
+    "passed": true,
+    "error": null,
+    "answer": "There are **4 invoices** recorded in the database with the currency **EUR**, and their combined total amount is **€38,530.64**."
+  },
+  {
+    "id": "t12",
+    "expected_tool": "sql_query",
+    "tools_used": [
+      "sql_query"
+    ],
+    "passed": true,
+    "error": null,
+    "answer": "The invoice with the highest total amount in the database was issued by **Aygün Ticarət**, and the amount of that invoice is **27,560.73** (in the invoice’s currency)."
+  },
+  {
+    "id": "t13",
+    "expected_tool": "sql_query",
+    "tools_used": [
+      "sql_query"
+    ],
+    "passed": true,
+    "error": null,
+    "answer": "There are **0** stored invoices that are flagged as needing human review."
+  },
+  {
+    "id": "t14",
+    "expected_tool": "extract_invoice",
+    "tools_used": [
+      "extract_invoice"
+    ],
+    "passed": true,
+    "error": null,
+    "answer": "**Seller:** Lənkəran Enerji MMC  \n**Total amount:** 12 620.6 AZN"
+  },
+  {
+    "id": "t15",
+    "expected_tool": "extract_invoice",
+    "tools_used": [
+      "extract_invoice"
+    ],
+    "passed": true,
+    "error": null,
+    "answer": "The invoice **INV-2026-0796** is issued in **EUR**."
+  },
+  {
+    "id": "t16",
+    "expected_tool": null,
+    "tools_used": [
+      "search_knowledge_base"
+    ],
+    "passed": true,
+    "error": null,
+    "answer": "The FATF defines a **politically exposed person (PEP)** as an individual who is—or has been—entrusted with a prominent public function, either **foreign** or **domestic** (including senior roles in international organisations). Specifically:\n\n* **Foreign PEPs** are individuals who are or have been e"
+  }
+]

@@ -54,6 +54,26 @@ datasets==5.0.1
 # pin above (jiter>=0.10,<1).
 instructor==1.16.0
 
+# --- Document assistant extensions (see docs/STATUS.md) ---
+# Invoice extraction: text-layer PDFs via pdfplumber, scans via Tesseract
+# (pytesseract is only a wrapper -- the tesseract binary is a system package).
+pdfplumber==0.11.10
+pytesseract==0.3.13
+opencv-python-headless==5.0.0.93
+reportlab==5.0.1
+# Company matching
+rapidfuzz==3.14.6
+# Database layer (SQLite by default, PostgreSQL + pgvector optionally)
+SQLAlchemy==2.0.54
+psycopg[binary]==3.3.6
+sqlglot==30.22.0
+# LLM fallback chain and background jobs
+anthropic==1.13.0
+celery==5.6.3
+redis==8.1.0
+beautifulsoup4==4.15.0
+# Voice input: faster-whisper is optional and lives in requirements-voice.txt
+
 # --- Utilities ---
 python-dotenv==1.2.3
 requests==2.34.2

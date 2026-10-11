@@ -27,6 +27,7 @@ from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
 
 from src.config import PROJECT_ROOT, LLMConfig, get_llm_config
+from src.llm_client import LLMClient, get_client
 from src.vectorstore import load_vectorstore
 
 logger = logging.getLogger(__name__)
@@ -147,7 +148,7 @@ def build_sources(answer: str, chunks: list[Document]) -> list[dict]:
     ]
 
 
-def get_llm(config: LLMConfig | None = None, max_tokens: int | None = None) -> ChatOpenAI:
+def get_llm(config: LLMConfig | None = None, max_tokens: int | None = None, callbacks: list | None = None) -> ChatOpenAI:
     """Build the chat LLM client. Pass an explicit `config` (e.g. from
     src.config.get_eval_llm_config()) to use a different model than the one
     that answers questions -- used by src.evaluate for the RAGAS judge.
@@ -172,22 +173,24 @@ def get_llm(config: LLMConfig | None = None, max_tokens: int | None = None) -> C
         temperature=0,
         max_retries=LLM_MAX_RETRIES,
         max_tokens=max_tokens,
+        callbacks=callbacks,
     )
 
 
 class RAGPipeline:
     """Retrieval + generation over the AML/KYC Chroma knowledge base."""
 
-    def __init__(self, top_k: int = DEFAULT_TOP_K):
+    def __init__(self, top_k: int = DEFAULT_TOP_K, client: LLMClient | None = None):
         self.top_k = top_k
         self.vectorstore = load_vectorstore()
-        self._llm: ChatOpenAI | None = None
+        self._client = client
 
     @property
-    def llm(self) -> ChatOpenAI:
-        if self._llm is None:
-            self._llm = get_llm()
-        return self._llm
+    def client(self) -> LLMClient:
+        """The shared LLM wrapper (routing, retries, fallback, logging); see src/llm_client.py."""
+        if self._client is None:
+            self._client = get_client()
+        return self._client
 
     def retrieve(self, question: str, k: int | None = None) -> list[Document]:
         return self.vectorstore.similarity_search(question, k=k or self.top_k)
@@ -196,11 +199,11 @@ class RAGPipeline:
         chunks = self.retrieve(question, k=k)
         context = format_context(chunks)
         messages = [
-            ("system", SYSTEM_PROMPT),
-            ("user", USER_PROMPT_TEMPLATE.format(context=context, question=question)),
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": USER_PROMPT_TEMPLATE.format(context=context, question=question)},
         ]
-        response = self.llm.invoke(messages)
-        answer_text = clean_citations(response.content)
+        reply = self.client.complete(messages, task="rag_answer")
+        answer_text = clean_citations(reply.text)
         return {
             "question": question,
             "answer": answer_text,

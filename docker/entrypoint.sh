@@ -17,11 +17,17 @@ case "${1:-api}" in
         build_index_if_missing
         exec uvicorn src.api:app --host 0.0.0.0 --port 8000
         ;;
+    worker)
+        exec celery -A src.collector.tasks worker --loglevel=info
+        ;;
+    beat)
+        exec celery -A src.collector.tasks beat --loglevel=info
+        ;;
     ui)
         exec streamlit run src/streamlit_app.py --server.address 0.0.0.0 --server.port 8501
         ;;
     *)
-        echo "Unknown command: $1 (expected 'api' or 'ui')" >&2
+        echo "Unknown command: $1 (expected 'api', 'ui', 'worker' or 'beat')" >&2
         exit 1
         ;;
 esac
