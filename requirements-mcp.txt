@@ -1,0 +1,3 @@
+# Optional: expose the assistant's tools as an MCP server (python -m src.mcp_server)
+# mcp 2.x renamed FastMCP to MCPServer; this code is written for 2.x.
+mcp>=2.3,<3

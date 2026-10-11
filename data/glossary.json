@@ -1,0 +1,24 @@
+{
+  "_note": "Starter glossary injected into translation prompts. Written by the assistant, NOT reviewed by a native speaker or compliance expert: have the company's terminology confirmed before relying on it.",
+  "az": {
+    "beneficial owner": "benefisiar mülkiyyətçi",
+    "money laundering": "pul yuyulması",
+    "anti-money laundering (AML)": "pulların yuyulmasına qarşı mübarizə (AML)",
+    "know your customer (KYC)": "müştərini tanı (KYC)",
+    "customer due diligence": "müştəri üzrə lazımi yoxlama",
+    "sanctions": "sanksiyalar",
+    "invoice": "hesab-faktura",
+    "factoring": "faktorinq",
+    "tax ID (VOEN)": "VÖEN"
+  },
+  "ru": {
+    "beneficial owner": "бенефициарный владелец",
+    "money laundering": "отмывание денег",
+    "anti-money laundering (AML)": "противодействие отмыванию денег (AML)",
+    "know your customer (KYC)": "знай своего клиента (KYC)",
+    "customer due diligence": "надлежащая проверка клиента",
+    "sanctions": "санкции",
+    "invoice": "счёт-фактура",
+    "factoring": "факторинг"
+  }
+}

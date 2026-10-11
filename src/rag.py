@@ -20,6 +20,7 @@ import json
 import logging
 import re
 import time
+from collections.abc import Iterator
 from pathlib import Path
 from typing import TypedDict
 
@@ -195,13 +196,37 @@ class RAGPipeline:
     def retrieve(self, question: str, k: int | None = None) -> list[Document]:
         return self.vectorstore.similarity_search(question, k=k or self.top_k)
 
-    def answer(self, question: str, k: int | None = None) -> RAGResult:
+    def _prepare(self, question: str, k: int | None) -> tuple[list[Document], list[dict]]:
         chunks = self.retrieve(question, k=k)
-        context = format_context(chunks)
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": USER_PROMPT_TEMPLATE.format(context=context, question=question)},
+            {"role": "user", "content": USER_PROMPT_TEMPLATE.format(context=format_context(chunks), question=question)},
         ]
+        return chunks, messages
+
+    def stream_answer(self, question: str, k: int | None = None) -> Iterator[dict]:
+        """Same answer as answer(), delivered as events: {"type": "token", "text": ...} while the model
+        writes, then one {"type": "done", "answer", "sources", "time_to_first_token_ms"}. The final answer
+        is cleaned of odd citation markers, which the raw token stream cannot be."""
+        started = time.perf_counter()
+        chunks, messages = self._prepare(question, k)
+        parts: list[str] = []
+        first_token_ms: float | None = None
+        for piece in self.client.stream(messages, task="rag_answer"):
+            if first_token_ms is None:
+                first_token_ms = (time.perf_counter() - started) * 1000
+            parts.append(piece)
+            yield {"type": "token", "text": piece}
+        answer_text = clean_citations("".join(parts))
+        yield {
+            "type": "done",
+            "answer": answer_text,
+            "sources": build_sources(answer_text, chunks),
+            "time_to_first_token_ms": first_token_ms,
+        }
+
+    def answer(self, question: str, k: int | None = None) -> RAGResult:
+        chunks, messages = self._prepare(question, k)
         reply = self.client.complete(messages, task="rag_answer")
         answer_text = clean_citations(reply.text)
         return {

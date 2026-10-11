@@ -37,7 +37,8 @@ jobs:
       - name: API health check
         run: curl -fsS http://localhost:8000/health
       - name: UI health check
-        run: curl -fsS http://localhost:8501/_stcore/health
+        # Streamlit has no compose healthcheck, so it can still be starting when `up --wait` returns: retry for up to ~60 s.
+        run: curl -fsS --retry 30 --retry-delay 2 --retry-connrefused --retry-all-errors http://localhost:8501/_stcore/health
       - name: API rejects an empty question with 422
         run: |
           code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' \
