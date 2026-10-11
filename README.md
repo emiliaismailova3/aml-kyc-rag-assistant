@@ -23,7 +23,7 @@ calculator and live web search, and quality is **measured with RAGAS**, not just
   search, a sandboxed calculator and web search, with a step limit against loops.
 - **FastAPI** backend with SQLite request logging, **Streamlit** UI, **Docker Compose**.
 - **Document-assistant extensions** (invoice extraction, company matching, pgvector, SQL agent tool, scheduled collection, voice, LLM reliability layer): see [Document-assistant extensions](#document-assistant-extensions) and the honest [status table](docs/STATUS.md).
-- **225 automated tests + lint + Docker smoke test** in CI on every push.
+- **246 automated tests + lint + Docker smoke test** in CI on every push.
 - **RAGAS evaluation** (faithfulness, answer relevancy, answer correctness) on a
   15-question gold set, with the failure cases diagnosed — see [Results](#results).
 
@@ -163,7 +163,10 @@ flowchart LR
 | Reliability layer + `/stats` | `curl localhost:8000/stats` | Retry/fallback/routing covered by tests with scripted providers; **live-tested on Groq only** (no OpenAI/Anthropic key was available) |
 | Agent SQL + invoice tools | `python -m scripts.seed_demo_db && python -m scripts.check_agent_routing` | 6/6 routing scenarios with correct answers on SQLite; 3/3 SQL scenarios on PostgreSQL via the read-only role |
 | Scheduled collection | `celery -A src.collector.tasks worker --pool=solo` | Real Redis + worker: 2 pages ingested, the second run reported duplicates and added nothing |
-| Voice questions | `curl -F "file=@q.wav" localhost:8000/ask_voice` | Speech-to-text pipeline runs; **recognition accuracy is unmeasured** |
+| Voice questions | `curl -F "file=@q.wav" localhost:8000/ask_voice` | Speech-to-text pipeline runs; **recognition accuracy is unmeasured** (`python -m scripts.check_voice` computes WER once recordings exist) |
+| Streaming answers | `curl -N -X POST localhost:8000/ask_stream -H "Content-Type: application/json" -d '{"question":"What is KYC?"}'` | Server-sent events (`token`, then `done` with sources and time to first token); retry/fallback only before the first token. Covered by tests with scripted providers |
+| Translation / summarization | `POST /translate`, `POST /summarize` | en / az / ru / tr; long texts are split and summarized map-reduce. Covered by tests with scripted providers; quality of the output not evaluated |
+| MCP server | `pip install -r requirements-mcp.txt && python -m src.mcp_server` | Five tools (knowledge base, read-only SQL, invoice extraction, translate, summarize); tested through a real stdio MCP client |
 
 **Limitations to know about:** all invoice and company data is synthetic and fictional; the agent has no
 provider fallback (it logs through a callback); the Anthropic/OpenAI fallback is tested with mocks only;
@@ -214,12 +217,12 @@ Groq-specific RAGAS issues, are in [`docs/NOTES.md`](docs/NOTES.md).
 
 ```bash
 python -m src.vectorstore        # retrieval tests query the real index
-pytest -k "not internet_search"  # 225 tests; no LLM key needed (LLM calls are mocked)
+pytest -k "not internet_search"  # 246 tests; no LLM key needed (LLM calls are mocked)
 ruff check src tests
 ```
 
 Tests marked `postgres` / `redis` need `docker compose --profile full up -d postgres redis` and are
-skipped automatically when those services are not reachable (all 225 passed locally with them running).
+skipped automatically when those services are not reachable (225 of the earlier tests passed with them running; the latest run without them: 246 passed, 5 skipped).
 
 CI ([`.github/workflows/tests.yml`](.github/workflows/tests.yml)) runs the tests and
 lint, then builds the Docker image and boots API + UI with `docker compose up --wait`
@@ -265,7 +268,9 @@ src/
   matching/         company-name matching and its evaluation
   collector/        Celery tasks: fetch, clean, dedupe, ingest
   voice.py          speech-to-text for /ask_voice
-tests/              225 tests
+  text_tools.py     translation and summarization
+  mcp_server.py     the tools exposed over MCP
+tests/              246 tests
 docs/               demo GIF, screenshots, engineering notes
 Dockerfile, docker-compose.yml, docker/entrypoint.sh
 ```

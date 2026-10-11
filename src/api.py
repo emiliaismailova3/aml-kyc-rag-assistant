@@ -11,6 +11,7 @@ Run with:
 
 from __future__ import annotations
 
+import json
 import logging
 import tempfile
 import time
@@ -19,7 +20,7 @@ from typing import Annotated
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from openai import APIError, RateLimitError
 from pydantic import BaseModel, Field
 
@@ -30,6 +31,7 @@ from src.llm_client import LLMUnavailable
 from src.llm_stats import get_stats
 from src.logging_db import log_request
 from src.rag import RAGPipeline
+from src.text_tools import TextToolError, summarize, translate
 from src.voice import AUDIO_SUFFIXES, MAX_AUDIO_BYTES, VoiceUnavailable, transcribe
 
 logger = logging.getLogger(__name__)
@@ -226,6 +228,60 @@ async def ask_voice(
 
     answer = await run_in_threadpool(ask_agent, AskRequest(question=transcript))
     return VoiceResponse(**answer.model_dump(), transcript=transcript)
+
+
+def _sse(event: dict) -> str:
+    return f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+
+@app.post("/ask_stream")
+def ask_stream(request: AskRequest) -> StreamingResponse:
+    """Same question and retrieval as /ask, but the answer is sent as server-sent events while the model
+    writes it: `token` events, then one `done` event with the cleaned answer, sources and time to first token.
+    Provider failures before the first token are normal 503/429 responses; later ones arrive as an `error` event."""
+    events = get_pipeline().stream_answer(request.question, k=request.top_k)
+    try:
+        first = next(events)  # raises LLMUnavailable here, before the 200 header is sent
+    except StopIteration:
+        first = None
+
+    def body():
+        try:
+            if first is not None:
+                yield _sse(first)
+            for event in events:
+                yield _sse(event)
+        except LLMUnavailable as exc:
+            yield _sse({"type": "error", "detail": str(exc), "escalate_to_human": True})
+
+    return StreamingResponse(body(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
+
+
+class TranslateRequest(BaseModel):
+    text: str = Field(..., min_length=1)
+    target_language: str = Field("en", description="en, az, ru or tr")
+
+
+class SummarizeRequest(BaseModel):
+    text: str = Field(..., min_length=1)
+    language: str = Field("en", description="Language of the summary: en, az, ru or tr")
+    max_sentences: int = Field(5, ge=1, le=20)
+
+
+@app.post("/translate")
+def translate_endpoint(request: TranslateRequest) -> dict:
+    try:
+        return {"translation": translate(request.text, request.target_language)}
+    except TextToolError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/summarize")
+def summarize_endpoint(request: SummarizeRequest) -> dict:
+    try:
+        return {"summary": summarize(request.text, request.language, request.max_sentences)}
+    except TextToolError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.get("/stats")

@@ -29,10 +29,14 @@ says plainly what was **not** run. Numbers come from `data/eval_results/*.json` 
 - **Voice quality is only spot-checked** (2 recordings, no WER): one phrase was exact, one word was misheard by both Whisper sizes. Azerbaijani speech was not tested.
 - **Docker:** the image builds with all new dependencies (built locally, and the CI `docker` job that boots API + UI is green on this
   branch). The `worker` and `beat` *containers* were never started: only `docker compose config` validation, plus a worker run directly on the host.
+- **Added on `feature/vacancy-gaps` (streaming, translation, summarization, MCP): tested with scripted providers, not against a live LLM**
+  unless noted below. The quality of translations and summaries has not been evaluated. Streaming logs *estimated* token counts
+  (about 4 characters per token) because streamed replies carry no usage data. Real-time (microphone) streaming and
+  speech translation are not implemented; the MCP server was checked through a real stdio client, not through a desktop MCP app.
 - Matching and invoices use **synthetic fictional data**; nothing here was tested on real company documents.
 - The demo invoice rows in the database come from the ground-truth labels, not from the extractor.
 
 ## Test suite
 
-`pytest -q -k "not internet_search"` with PostgreSQL and Redis running: **225 passed**, 1 deselected (the live web-search test). `ruff check src tests scripts`: clean.
+`pytest -q -k "not internet_search"` with PostgreSQL and Redis running: **225 passed** on `main`; on `feature/vacancy-gaps` without PostgreSQL/Redis running: **246 passed, 5 skipped**. `ruff check src tests scripts`: clean.
 Without those services the `postgres`/`redis`-marked tests skip themselves.

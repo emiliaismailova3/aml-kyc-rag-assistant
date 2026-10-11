@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 import random
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from functools import lru_cache
 
@@ -123,6 +123,9 @@ class Provider:
     def call(self, messages: list[Message], model: str, max_tokens: int | None) -> RawReply:
         raise NotImplementedError
 
+    def stream(self, messages: list[Message], model: str, max_tokens: int | None) -> Iterator[str]:
+        raise NotImplementedError
+
 
 class OpenAICompatibleProvider(Provider):
     def __init__(self, settings: ProviderSettings):
@@ -146,6 +149,16 @@ class OpenAICompatibleProvider(Provider):
         )
 
 
+    def stream(self, messages, model, max_tokens):
+        """Yield text pieces as they arrive. Token usage is not requested, so the caller estimates it."""
+        response = self._client.chat.completions.create(
+            model=model, messages=messages, temperature=0, max_tokens=max_tokens, stream=True
+        )
+        for event in response:
+            if event.choices and event.choices[0].delta.content:
+                yield event.choices[0].delta.content
+
+
 class AnthropicProvider(Provider):
     def __init__(self, settings: ProviderSettings):
         super().__init__(settings)
@@ -165,6 +178,15 @@ class AnthropicProvider(Provider):
         response = self._client.messages.create(**options)
         text = "".join(block.text for block in response.content if getattr(block, "type", "") == "text")
         return RawReply(text=text, input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens)
+
+    def stream(self, messages, model, max_tokens):
+        system = "\n\n".join(m["content"] for m in messages if m["role"] == "system")
+        chat = [m for m in messages if m["role"] != "system"]
+        options = {"model": model, "messages": chat, "temperature": 0, "max_tokens": max_tokens or 4096}
+        if system:
+            options["system"] = system
+        with self._client.messages.stream(**options) as stream:
+            yield from stream.text_stream
 
 
 def build_provider(settings: ProviderSettings) -> Provider:
@@ -260,6 +282,66 @@ class LLMClient:
                     input_tokens=raw.input_tokens, output_tokens=raw.output_tokens, cost_usd=cost,
                     latency_ms=latency_ms, attempts=attempts, fell_back=position > 0, errors=errors,
                 )
+
+        raise LLMUnavailable(
+            "All LLM providers failed (" + "; ".join(errors[-4:]) + "). Escalating to a human.",
+            rate_limited=rate_limited,
+        )
+
+    def stream(
+        self,
+        messages: list[Message],
+        task: str = "chat",
+        tier: str | None = None,
+        max_tokens: int | None = None,
+    ) -> Iterator[str]:
+        """Yield the answer piece by piece. Retry and fallback work exactly as in complete(), but only
+        until the first piece arrives: once the user has seen text, switching provider would make a
+        different answer, so a failure after that raises LLMUnavailable. Token counts in the call log
+        are estimates (about 4 characters per token) because streamed replies carry no usage data."""
+        if not self.providers:
+            raise LLMUnavailable("No LLM provider is configured: set an API key in .env.")
+        tier = tier or choose_tier(messages)
+        prompt_chars = sum(len(m["content"]) for m in messages)
+
+        errors: list[str] = []
+        rate_limited = False
+        for provider in self.providers:
+            model = provider.model_for(tier)
+            for retry_number in range(MAX_RETRIES + 1):
+                started = time.perf_counter()
+                pieces = provider.stream(messages, model, max_tokens)
+                sent = 0
+                try:
+                    for piece in pieces:
+                        sent += len(piece)
+                        yield piece
+                except Exception as exc:  # noqa: BLE001 - classified below
+                    error_name = type(exc).__name__
+                    errors.append(f"{provider.name}/{model}: {error_name}")
+                    rate_limited = getattr(exc, "status_code", None) == 429
+                    self._record(
+                        provider=provider.name, model=model, task=task, tier=tier,
+                        latency_ms=(time.perf_counter() - started) * 1000, input_tokens=0, output_tokens=0,
+                        cost_usd=0.0, status="error", error=error_name,
+                    )
+                    if sent:
+                        raise LLMUnavailable(
+                            f"The stream from {provider.name} broke after {sent} characters.", rate_limited
+                        ) from exc
+                    if not is_retryable(exc) or retry_number == MAX_RETRIES:
+                        break  # next provider
+                    self._sleep(backoff_delay(retry_number, self._rng))
+                    continue
+
+                input_tokens, output_tokens = prompt_chars // 4, sent // 4
+                self._record(
+                    provider=provider.name, model=model, task=task, tier=tier,
+                    latency_ms=(time.perf_counter() - started) * 1000, input_tokens=input_tokens,
+                    output_tokens=output_tokens, cost_usd=estimate_cost(model, input_tokens, output_tokens),
+                    status="ok", error=None,
+                )
+                return
 
         raise LLMUnavailable(
             "All LLM providers failed (" + "; ".join(errors[-4:]) + "). Escalating to a human.",

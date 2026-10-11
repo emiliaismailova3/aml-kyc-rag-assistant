@@ -51,3 +51,7 @@ data/eval_results/*
 
 # Personal voice recordings used to test /ask_voice
 WhatsApp Audio*
+
+# Voice-eval recordings (personal audio)
+data/voice_eval/*
+!data/voice_eval/phrases.json
