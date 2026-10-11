@@ -241,3 +241,24 @@ def test_phrase_file_is_well_formed():
     phrases = _json.loads((Path(__file__).resolve().parent.parent / "data" / "voice_eval" / "phrases.json").read_text(encoding="utf-8"))
     assert len(phrases) == 5 and {p["language"] for p in phrases} == {"en", "az"}
     assert len({p["file"] for p in phrases}) == 5
+
+
+# --- glossary ----------------------------------------------------------------------------
+
+def test_glossary_terms_are_added_to_the_translation_prompt():
+    client = EchoClient()
+    text_tools.translate("The beneficial owner signed.", "az", client=client)
+    system = client.calls[0][1][0]["content"]
+    assert "beneficial owner -> benefisiar mülkiyyətçi" in system
+
+
+def test_no_glossary_section_for_a_language_without_entries():
+    client = EchoClient()
+    text_tools.translate("Hello", "tr", client=client)
+    assert "Always translate these terms" not in client.calls[0][1][0]["content"]
+
+
+def test_glossary_file_has_no_empty_entries():
+    glossary = text_tools.load_glossary()
+    assert {"az", "ru"} <= set(glossary)
+    assert all(src and dst for terms in glossary.values() for src, dst in terms.items())

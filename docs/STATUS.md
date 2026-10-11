@@ -26,11 +26,11 @@ says plainly what was **not** run. Numbers come from `data/eval_results/*.json` 
 - **The RAGAS table was not re-run on pgvector and the agent was not re-scored** after the new tools were added. The agent
   RAGAS evaluation was started on `main` (3 tools, 4 chunks per search) and stopped by Groq's daily quota; its partial
   cache is from that agent, so re-run it from scratch on whichever branch you present.
-- **Voice quality is measured only on 5 phrases from one speaker** (Whisper `base`, `scripts/check_voice.py`): mean WER 0.15 for English (3 phrases) and 0.39 for Azerbaijani (2 phrases). Mistakes: "450" heard as "550", "ownership" as "overmanship", Azerbaijani `ə` written as `e`. With no language hint Whisper auto-detected one English phrase as another language (garbage output). Too small for any accuracy claim; no noise, accents or other speakers were tested.
+- **Voice quality is measured only on 5 phrases from one speaker** (Whisper `base`, `scripts/check_voice.py`): mean WER 0.15 for English (3 phrases) and 0.39 for Azerbaijani (2 phrases). Mistakes: "ownership" heard as "overmanship", Azerbaijani `ə` written as `e`; "450" came out as "550" in all four configurations tried (the recording itself may say 550 - not verified). I also tried Whisper `small` and a domain-word `initial_prompt` (base/small x with/without): `small` was a little better on Azerbaijani (mean WER 0.32 vs 0.39) but worse on English (0.32 vs 0.15), and the prompt made both worse. No consistent gain on 5 phrases, so the default stays `base` and the prompt option was not kept. With no language hint Whisper auto-detected one English phrase as another language (garbage output). Too small for any accuracy claim; no noise, accents or other speakers were tested.
 - **Docker:** the image builds with all new dependencies (built locally, and the CI `docker` job that boots API + UI is green on this
   branch). The `worker` and `beat` *containers* were never started: only `docker compose config` validation, plus a worker run directly on the host.
 - **Added on `feature/vacancy-gaps` (streaming, translation, summarization, MCP): tested with scripted providers, not against a live LLM**
-  unless noted below. The quality of translations and summaries has not been evaluated. Streaming logs *estimated* token counts
+  unless noted below. The quality of translations and summaries has not been evaluated; the az/ru glossary in data/glossary.json was written by the assistant and needs review by a native speaker or the company's compliance team (it fixed "beneficial owners" in a live check: the first version produced "Mənbə sahibləri"). Streaming logs *estimated* token counts
   (about 4 characters per token) because streamed replies carry no usage data. Real-time (microphone) streaming and
   speech translation are not implemented; the MCP server was checked through a real stdio client, not through a desktop MCP app.
 - Matching and invoices use **synthetic fictional data**; nothing here was tested on real company documents.
@@ -38,5 +38,5 @@ says plainly what was **not** run. Numbers come from `data/eval_results/*.json` 
 
 ## Test suite
 
-`pytest -q -k "not internet_search"` with PostgreSQL and Redis running: **225 passed** on `main`; on `feature/vacancy-gaps` without PostgreSQL/Redis running: **246 passed, 5 skipped**. `ruff check src tests scripts`: clean.
+`pytest -q -k "not internet_search"` with PostgreSQL and Redis running: **225 passed** on `main`; on `feature/vacancy-gaps` without PostgreSQL/Redis running: **249 passed, 5 skipped**. `ruff check src tests scripts`: clean.
 Without those services the `postgres`/`redis`-marked tests skip themselves.

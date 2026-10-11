@@ -10,7 +10,13 @@ cut at paragraph boundaries so sentences are not split.
 
 from __future__ import annotations
 
+import json
+from functools import lru_cache
+from pathlib import Path
+
 from src.llm_client import LLMClient, get_client
+
+GLOSSARY_PATH = Path(__file__).resolve().parent.parent / "data" / "glossary.json"
 
 MAX_INPUT_CHARS = 60_000   # hard limit per request; larger inputs should be sent in parts
 CHUNK_CHARS = 6_000        # size of one piece for long texts
@@ -28,6 +34,24 @@ SUMMARIZE_SYSTEM = (
     "Use only facts present in the text; do not add opinions or outside knowledge. "
     "Keep important numbers, dates and names. Output only the summary."
 )
+
+
+@lru_cache(maxsize=1)
+def load_glossary() -> dict[str, dict[str, str]]:
+    """Fixed term translations per target language (data/glossary.json); empty if the file is missing."""
+    try:
+        data = json.loads(GLOSSARY_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return {lang: terms for lang, terms in data.items() if not lang.startswith("_")}
+
+
+def glossary_prompt(target: str) -> str:
+    terms = load_glossary().get(target.lower(), {})
+    if not terms:
+        return ""
+    lines = "\n".join(f"- {source} -> {translation}" for source, translation in terms.items())
+    return f"\nAlways translate these terms exactly as listed:\n{lines}"
 
 
 class TextToolError(ValueError):
@@ -74,7 +98,7 @@ def split_text(text: str, limit: int = CHUNK_CHARS) -> list[str]:
 
 
 def translate(text: str, target: str, client: LLMClient | None = None) -> str:
-    system = TRANSLATE_SYSTEM.format(target=language_name(target))
+    system = TRANSLATE_SYSTEM.format(target=language_name(target)) + glossary_prompt(target)
     client = client or get_client()
     parts = []
     for piece in split_text(_check_text(text)):
