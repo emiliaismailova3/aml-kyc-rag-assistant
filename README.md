@@ -22,8 +22,12 @@ calculator and live web search, and quality is **measured with RAGAS**, not just
 - **Tool-calling agent** (LangChain / LangGraph) that chooses between knowledge-base
   search, a sandboxed calculator and web search, with a step limit against loops.
 - **FastAPI** backend with SQLite request logging, **Streamlit** UI, **Docker Compose**.
+- **Security and observability**: PII masking (logs, traces, prompts), prompt-injection screening with a
+  system-prompt canary, optional Langfuse tracing; measured in [`evals/`](evals/README.md).
+- **Tested on real documents** (30 scanned SROIE receipts): a grounding check now stops the model from
+  accepting invented values (6/30 accepted before, 0/30 after).
 - **Document-assistant extensions** (invoice extraction, company matching, pgvector, SQL agent tool, scheduled collection, voice, LLM reliability layer): see [Document-assistant extensions](#document-assistant-extensions) and the honest [status table](docs/STATUS.md).
-- **249 automated tests + lint + Docker smoke test** in CI on every push.
+- **305 automated tests + lint + Docker smoke test** in CI on every push.
 - **RAGAS evaluation** (faithfulness, answer relevancy, answer correctness) on a
   15-question gold set, with the failure cases diagnosed — see [Results](#results).
 
@@ -167,13 +171,25 @@ flowchart LR
 | Streaming answers | `curl -N -X POST localhost:8000/ask_stream -H "Content-Type: application/json" -d '{"question":"What is KYC?"}'` | Server-sent events (`token`, then `done` with sources and time to first token); retry/fallback only before the first token. Covered by tests with scripted providers |
 | Translation / summarization | `POST /translate`, `POST /summarize` | en / az / ru / tr; long texts are split and summarized map-reduce. A starter glossary (`data/glossary.json`, not reviewed by a native speaker) fixes AML/KYC term translations; covered by tests with scripted providers; translation quality not evaluated |
 | MCP server | `pip install -r requirements-mcp.txt && python -m src.mcp_server` | Five tools (knowledge base, read-only SQL, invoice extraction, translate, summarize); tested through a real stdio MCP client |
+| Real documents: invoice pipeline on scanned receipts | `python -m evals.sroie_eval` (30 ICDAR 2019 SROIE receipts, see [evals/README.md](evals/README.md)) | Real Malaysian receipts, so no VÖEN and no AZN/USD/EUR: the correct outcome is human review. **Before** the grounding check, **6 of 30 were accepted with invented values** (e.g. VÖEN `0000000000`). **After** it ([`src/invoices/grounding.py`](src/invoices/grounding.py)): **0 of 30 accepted**, all sent to review; the synthetic set kept the same accuracy. First-reply field accuracy on these receipts is low: seller 43%, date 40%, total 60% |
+| Prompt-injection defence | `python -m evals.security_eval` | Rule-based screening (en/ru/az) + "documents are untrusted data" rule + system-prompt canary with an output/stream leak check. On 41 attacks: **direct 28/28, indirect (inside documents) 5/5, paraphrased 0/8** blocked by the rules; **0 false positives on 51 benign questions**. Whether the model resists the 8 paraphrases (canary never leaked) is not measured yet. The set was written by the same author as the rules |
+| PII masking | `python -m evals.security_eval` | E-mail, phone, IBAN, card (Luhn), FIN, ID document masked in logs, Langfuse traces, LLM prompts and invoice text: **29/29 found, 0 false positives, 0 damaged VÖEN/invoice numbers/amounts** on a 32-case set by the same author; names and addresses are not detected |
+| Reranker | `python -m evals.rerank_effect`, `python -m evals.rerank_ab` | Cross-encoder `ms-marco-MiniLM-L-6-v2` over 12 candidates, **+0.85 s per query on CPU (p50)**. Base RAG at k=4: refusals **5/15 → 5/15** (q10 fixed, q06 broke): **no measured gain**. Agent: still loops on q02, q05, q07 (run cut short by the daily quota). Kept on, but the evidence does not show it helps yet |
+| Langfuse tracing | set `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | LLM generations (tokens, cost, attempts, fallback), retrieval and agent steps, PII-masked. Covered by tests with a fake client; **not yet verified against a live Langfuse project** |
+| Agent tool selection | `python -m evals.agent_routing_all` | **14/16 scenarios** (calculator 2/2, web 2/3, knowledge base 5/6, SQL 3/3, invoice 2/2); both failures were step-limit loops. New since then: at most 3 knowledge-base searches, and a base-RAG fallback after the step limit (unit-tested, not yet re-measured) |
+| Latency / cost / failover | `python -m evals.latency_cost`, `python -m evals.forced_failover` | p50 / p95: RAG answer 1.5 s / 2.8 s (n=10), SQL question via agent 1.2 s / 1.7 s (n=3), invoice extraction 1.7 s / 3.4 s (n=15). Estimated cost per request at list prices: RAG $0.00053, invoice $0.00015 (Groq free tier: nothing billed). Small-model routing: **~58% lower estimated cost** on the invoice calls (same tokens re-priced; quality of the bigger model on them not measured). Primary provider down: fell back after 4 failed attempts and answered (15 s); all down: escalated to a human (28 s) |
 
-**Limitations to know about:** all invoice and company data is synthetic and fictional; the agent has no
+**Limitations to know about:** the invoices and companies used for accuracy are synthetic; the only real
+documents tested are 30 SROIE receipts, where the right answer is "send to a human". The agent has no
 provider fallback (it logs through a callback); the Anthropic/OpenAI fallback is tested with mocks only;
-the SQL tool rejects `WITH`/`UNION` queries; the RAGAS tables in Results below were measured on the Chroma backend and the agent
-has not been re-scored with the new tools.
+the SQL tool rejects `WITH`/`UNION` queries; the API has no authentication. The RAGAS tables in Results below
+were measured on the Chroma backend **before** the reranker and the security prompt rules were added, and the
+agent has not been scored by RAGAS.
 
 ## Results
+
+> These RAGAS numbers predate the reranker and the security rules added to the system prompt; a re-run is
+> pending (Groq's daily token limit allows about one RAGAS run per day).
 
 RAGAS on the 15-question gold set ([`data/eval_questions.json`](data/eval_questions.json));
 one run per setting, judge `openai/gpt-oss-120b` via Groq (same judge for both), local `bge-small`
@@ -209,20 +225,21 @@ retrieve 4 chunks instead of 8). It was checked instead on routing scenarios: 6 
 (SQL, invoice extraction) chose the right tool and returned the correct answer
 ([`agent_routing.json`](data/eval_results/agent_routing.json)).
 
-**Next steps:** score the agent with RAGAS on the same set, investigate q07 and the low-correctness answers,
-then try hybrid BM25 + vector search and a re-ranker. Engineering notes from the evaluation, including
+**Next steps:** re-run RAGAS after the reranker and security changes, score the agent with RAGAS, investigate
+q07 and the low-correctness answers, and try hybrid BM25 + vector search (the cross-encoder reranker alone
+showed no measured gain). Engineering notes from the evaluation, including
 Groq-specific RAGAS issues, are in [`docs/NOTES.md`](docs/NOTES.md).
 
 ## Testing
 
 ```bash
 python -m src.vectorstore        # retrieval tests query the real index
-pytest -k "not internet_search"  # 249 tests; no LLM key needed (LLM calls are mocked)
+pytest -k "not internet_search"  # 305 tests; no LLM key needed (LLM calls are mocked)
 ruff check src tests
 ```
 
 Tests marked `postgres` / `redis` need `docker compose --profile full up -d postgres redis` and are
-skipped automatically when those services are not reachable (225 of the earlier tests passed with them running; the latest run without them: 249 passed, 5 skipped).
+skipped automatically when those services are not reachable (225 of the earlier tests passed with them running; the latest run without them: 299 passed, 5 skipped, 1 deselected (live web search)).
 
 CI ([`.github/workflows/tests.yml`](.github/workflows/tests.yml)) runs the tests and
 lint, then builds the Docker image and boots API + UI with `docker compose up --wait`
@@ -236,7 +253,10 @@ Streamlit UI (via `AppTest`), and the evaluation's resume/caching logic.
 ## Known limitations
 
 - The agent's answers haven't been scored by RAGAS yet (see *Results*). The base-RAG numbers come from
-  a single run on 15 questions.
+  a single run on 15 questions, before the reranker and security changes.
+- Prompt-injection screening is rule-based: it blocked every direct and in-document attack in the test set
+  but none of the 8 paraphrased ones; the model-level defences (untrusted-data rule, canary) are not yet
+  measured against them.
 - PDF extraction occasionally mangles curly quotes in Word-exported PDFs (`'` → `�`);
   cosmetic, retrieval isn't affected.
 - Two FATF documents (VASP guidance, 2023 Azerbaijan Mutual Evaluation Report)
@@ -270,7 +290,12 @@ src/
   voice.py          speech-to-text for /ask_voice
   text_tools.py     translation and summarization
   mcp_server.py     the tools exposed over MCP
-tests/              249 tests
+  rerank.py         cross-encoder reranking of retrieved chunks
+  security/         PII masking, prompt-injection screening, canary leak check
+  tracing.py        optional Langfuse tracing (PII-masked)
+  invoices/grounding.py  extracted values must appear in the document
+evals/              measurement scripts and their results (see evals/README.md)
+tests/              305 tests
 docs/               demo GIF, screenshots, engineering notes
 Dockerfile, docker-compose.yml, docker/entrypoint.sh
 ```
