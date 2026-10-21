@@ -57,3 +57,7 @@ data/voice_eval/*
 !data/voice_eval/phrases.json
 /en_*.wav
 !data/eval_results/voice_wer.json
+
+# Downloaded public datasets (evaluation only, not redistributed)
+data/external/
+evals/results/*.log

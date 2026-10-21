@@ -1,0 +1,141 @@
+{
+  "rag_k4_reranker_off": {
+    "refused": 5,
+    "of": 15,
+    "ids": [
+      "q02",
+      "q05",
+      "q07",
+      "q10",
+      "q14"
+    ]
+  },
+  "rag_k4_reranker_on": {
+    "refused": 5,
+    "of": 15,
+    "ids": [
+      "q02",
+      "q05",
+      "q06",
+      "q07",
+      "q14"
+    ]
+  },
+  "agent_reranker_on": {
+    "step_limit_failures": 3,
+    "of": 15,
+    "ids": [
+      "q02",
+      "q05",
+      "q07"
+    ],
+    "other_errors": [
+      "q09",
+      "q11",
+      "q12",
+      "q13",
+      "q14",
+      "q15"
+    ],
+    "rows": [
+      {
+        "id": "q01",
+        "error": null,
+        "tools": [
+          "search_knowledge_base"
+        ]
+      },
+      {
+        "id": "q02",
+        "error": "GraphRecursionError",
+        "tools": []
+      },
+      {
+        "id": "q03",
+        "error": null,
+        "tools": [
+          "search_knowledge_base"
+        ]
+      },
+      {
+        "id": "q04",
+        "error": null,
+        "tools": [
+          "search_knowledge_base"
+        ]
+      },
+      {
+        "id": "q05",
+        "error": "GraphRecursionError",
+        "tools": []
+      },
+      {
+        "id": "q06",
+        "error": null,
+        "tools": [
+          "search_knowledge_base"
+        ]
+      },
+      {
+        "id": "q07",
+        "error": "GraphRecursionError",
+        "tools": []
+      },
+      {
+        "id": "q08",
+        "error": null,
+        "tools": [
+          "search_knowledge_base"
+        ]
+      },
+      {
+        "id": "q09",
+        "error": "OpenAIRateLimitError",
+        "tools": []
+      },
+      {
+        "id": "q10",
+        "error": null,
+        "tools": [
+          "search_knowledge_base"
+        ]
+      },
+      {
+        "id": "q11",
+        "error": "OpenAIRateLimitError",
+        "tools": []
+      },
+      {
+        "id": "q12",
+        "error": "OpenAIRateLimitError",
+        "tools": []
+      },
+      {
+        "id": "q13",
+        "error": "OpenAIRateLimitError",
+        "tools": []
+      },
+      {
+        "id": "q14",
+        "error": "OpenAIRateLimitError",
+        "tools": []
+      },
+      {
+        "id": "q15",
+        "error": "OpenAIRateLimitError",
+        "tools": []
+      }
+    ]
+  },
+  "agent_baseline_without_reranker": {
+    "step_limit_failures": 4,
+    "of": 15,
+    "ids": [
+      "q02",
+      "q05",
+      "q07",
+      "q10"
+    ],
+    "source": "docs/STATUS.md, 2026-10-12 run"
+  }
+}

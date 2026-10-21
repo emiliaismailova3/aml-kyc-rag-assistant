@@ -1,0 +1,160 @@
+{
+  "questions": 15,
+  "hit_rate@1": 0.933,
+  "hit_rate@4": 1.0,
+  "hit_rate@8": 1.0,
+  "level": "document",
+  "rows": [
+    {
+      "id": "q01",
+      "expected": [
+        "wolfsberg_faqs_beneficial_ownership.pdf"
+      ],
+      "first_hit_rank": 1,
+      "hit@1": true,
+      "hit@4": true,
+      "hit@8": true
+    },
+    {
+      "id": "q02",
+      "expected": [
+        "fatf_recommendations_2025.pdf"
+      ],
+      "first_hit_rank": 1,
+      "hit@1": true,
+      "hit@4": true,
+      "hit@8": true
+    },
+    {
+      "id": "q03",
+      "expected": [
+        "fatf_recommendations_2025.pdf"
+      ],
+      "first_hit_rank": 2,
+      "hit@1": false,
+      "hit@4": true,
+      "hit@8": true
+    },
+    {
+      "id": "q04",
+      "expected": [
+        "wolfsberg_pep_guidance.pdf"
+      ],
+      "first_hit_rank": 1,
+      "hit@1": true,
+      "hit@4": true,
+      "hit@8": true
+    },
+    {
+      "id": "q05",
+      "expected": [
+        "wolfsberg_pep_guidance.pdf"
+      ],
+      "first_hit_rank": 1,
+      "hit@1": true,
+      "hit@4": true,
+      "hit@8": true
+    },
+    {
+      "id": "q06",
+      "expected": [
+        "wolfsberg_source_of_wealth_funds_faqs.pdf"
+      ],
+      "first_hit_rank": 1,
+      "hit@1": true,
+      "hit@4": true,
+      "hit@8": true
+    },
+    {
+      "id": "q07",
+      "expected": [
+        "wolfsberg_sanctions_screening_guidance.pdf"
+      ],
+      "first_hit_rank": 1,
+      "hit@1": true,
+      "hit@4": true,
+      "hit@8": true
+    },
+    {
+      "id": "q08",
+      "expected": [
+        "fatf_recommendations_2025.pdf"
+      ],
+      "first_hit_rank": 1,
+      "hit@1": true,
+      "hit@4": true,
+      "hit@8": true
+    },
+    {
+      "id": "q09",
+      "expected": [
+        "fatf_recommendations_2025.pdf",
+        "wolfsberg_correspondent_banking_principles_2022.pdf"
+      ],
+      "first_hit_rank": 1,
+      "hit@1": true,
+      "hit@4": true,
+      "hit@8": true
+    },
+    {
+      "id": "q10",
+      "expected": [
+        "azerbaijan_aml_law_unodc.pdf"
+      ],
+      "first_hit_rank": 1,
+      "hit@1": true,
+      "hit@4": true,
+      "hit@8": true
+    },
+    {
+      "id": "q11",
+      "expected": [
+        "azerbaijan_aml_law_unodc.pdf"
+      ],
+      "first_hit_rank": 1,
+      "hit@1": true,
+      "hit@4": true,
+      "hit@8": true
+    },
+    {
+      "id": "q12",
+      "expected": [
+        "cbar_notice_unlicensed_payment_institutions.pdf"
+      ],
+      "first_hit_rank": 1,
+      "hit@1": true,
+      "hit@4": true,
+      "hit@8": true
+    },
+    {
+      "id": "q13",
+      "expected": [
+        "wolfsberg_digital_customer_lifecycle_risk_management.pdf"
+      ],
+      "first_hit_rank": 1,
+      "hit@1": true,
+      "hit@4": true,
+      "hit@8": true
+    },
+    {
+      "id": "q14",
+      "expected": [
+        "fatf_azerbaijan_fur_2025.pdf"
+      ],
+      "first_hit_rank": 1,
+      "hit@1": true,
+      "hit@4": true,
+      "hit@8": true
+    },
+    {
+      "id": "q15",
+      "expected": [
+        "cbar_regulation_payment_emoney_institutions_2024.pdf"
+      ],
+      "first_hit_rank": 1,
+      "hit@1": true,
+      "hit@4": true,
+      "hit@8": true
+    }
+  ]
+}

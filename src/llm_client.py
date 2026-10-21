@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 
 from src.config import ProviderSettings, get_prices, get_provider_chain
+from src.tracing import observe, update
 
 logger = logging.getLogger(__name__)
 
@@ -231,6 +232,27 @@ class LLMClient:
             logger.warning("Could not record LLM call", exc_info=True)
 
     def complete(
+        self,
+        messages: list[Message],
+        task: str = "chat",
+        tier: str | None = None,
+        needs_tools: bool = False,
+        retry: bool = False,
+        max_tokens: int | None = None,
+    ) -> LLMResponse:
+        """Traced wrapper (Langfuse generation, a no-op without keys) around _complete."""
+        with observe(f"llm:{task}", as_type="generation", input=messages) as generation:
+            reply = self._complete(messages, task, tier, needs_tools, retry, max_tokens)
+            update(
+                generation, output=reply.text, model=reply.model,
+                usage_details={"input": reply.input_tokens, "output": reply.output_tokens},
+                cost_details={"total": reply.cost_usd},
+                metadata={"provider": reply.provider, "tier": reply.tier, "attempts": reply.attempts,
+                          "fell_back": reply.fell_back, "errors": reply.errors},
+            )
+            return reply
+
+    def _complete(
         self,
         messages: list[Message],
         task: str = "chat",

@@ -81,3 +81,5 @@ tqdm==4.70.1
 
 # --- Testing ---
 pytest==9.1.1
+# Optional Langfuse tracing (src/tracing.py); off unless LANGFUSE_* keys are set
+langfuse==5.0.4

@@ -34,7 +34,27 @@ says plainly what was **not** run. Numbers come from `data/eval_results/*.json` 
 - Matching and invoices use **synthetic fictional data**; nothing here was tested on real company documents.
 - The demo invoice rows in the database come from the ground-truth labels, not from the extractor.
 
+## Added on `feature/nine-of-ten` (2026-10-21)
+
+All numbers come from scripts in `evals/` (results in `evals/results/`).
+
+- **Real documents (SROIE, 30 scanned receipts):** before the grounding check 6/30 were accepted with
+  invented VÖEN/currency; after it 0/30 (all to human review). First-reply accuracy is low on these
+  receipts (seller 43%, date 40%, total 60%). Synthetic invoices: unchanged.
+- **Reranker:** no measured gain. Base RAG at k=4 refused 5/15 with and without it; the agent still looped on
+  q02, q05, q07 (that run was cut short by Groq's daily limit). Costs ~0.85 s per query on this laptop's CPU.
+- **Agent loop fixes (not yet re-measured live):** at most 3 knowledge-base searches per question; after the
+  step limit the base RAG pipeline answers instead of an error (unit-tested).
+- **Prompt injection:** rules block 28/28 direct and 5/5 in-document attacks, 0/8 paraphrases; 0 false
+  positives on 51 benign questions. The model-level layers (untrusted-data rule, canary) are not measured
+  against the paraphrases yet. Test set written by the same author as the rules.
+- **PII masking:** 29/29 entities, 0 false positives, no damaged business identifiers (author-written set).
+- **Langfuse:** code and tests with a fake client; not verified against a live project (needs keys in .env).
+- **OCR configuration:** without `TESSDATA_PREFIX` pointing at `aze.traineddata`, OCR is English-only and
+  company-name accuracy on the synthetic set falls from 86.7% to 40%.
+- **RAGAS:** the published table predates the reranker and the new system-prompt rules; re-run pending.
+
 ## Test suite
 
-`pytest -q -k "not internet_search"` with PostgreSQL and Redis running: **225 passed** on `main`; on `feature/vacancy-gaps` without PostgreSQL/Redis running: **249 passed, 5 skipped**. `ruff check src tests scripts`: clean.
+`pytest -q -k "not internet_search"` with PostgreSQL and Redis running: **225 passed** on `main`; on `feature/nine-of-ten` without PostgreSQL/Redis running: **299 passed, 5 skipped**. `ruff check src tests scripts`: clean.
 Without those services the `postgres`/`redis`-marked tests skip themselves.

@@ -16,9 +16,12 @@ from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
 
+from src.invoices.grounding import ungrounded_fields
 from src.invoices.ocr import extract_text
 from src.invoices.schema import InvoiceData
 from src.llm_client import LLMUnavailable
+from src.security.guard import mask_prompts_enabled
+from src.security.pii import mask
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +39,10 @@ Fields:
 - currency: one of AZN, USD, EUR
 - line_items: list of {"description", "quantity", "unit_price", "amount"}; use [] if there is no item table
 
-Never invent values. If a field is unreadable, give your best reading of the text."""
+Never invent values. If a field is unreadable, give your best reading of the text.
+If a field is not printed in the document at all (for example there is no VÖEN, or the currency is
+not AZN, USD or EUR), use null for it. Never fill a field with a different number, a placeholder
+such as 0000000000, or a currency that is not printed."""
 
 # (messages) -> reply text. Messages are {"role": ..., "content": ...} dicts.
 LLMCall = Callable[[list[dict]], str]
@@ -82,7 +88,6 @@ def extract_from_text(text: str, llm_call: LLMCall | None = None) -> ExtractionR
             )
         try:
             invoice = InvoiceData.model_validate(parse_json_reply(reply))
-            return ExtractionResult(invoice=invoice, attempts=attempt)
         except (ValidationError, ValueError) as exc:
             error = _short_error(exc)
             errors.append(error)
@@ -91,9 +96,20 @@ def extract_from_text(text: str, llm_call: LLMCall | None = None) -> ExtractionR
                 {"role": "assistant", "content": reply},
                 {
                     "role": "user",
-                    "content": f"That JSON is invalid: {error}\nFix it and reply with the corrected JSON only.",
+                    "content": f"That JSON is invalid: {error}\nFix it and reply with the corrected JSON only. "
+                    "If the correct value is not in the invoice text, use null: do not guess or make one up.",
                 },
             ]
+            continue
+        missing = ungrounded_fields(invoice, text)
+        if not missing:
+            return ExtractionResult(invoice=invoice, attempts=attempt)
+        # Well-formed but not taken from the document. Asking the model to "fix" it only invites
+        # another invented value, so it goes straight to a person (see src/invoices/grounding.py).
+        return ExtractionResult(
+            needs_human_review=True, attempts=attempt,
+            errors=errors + [f"value(s) not found in the document: {', '.join(missing)}"],
+        )
     return ExtractionResult(needs_human_review=True, errors=errors, attempts=MAX_RETRIES + 1)
 
 
@@ -112,6 +128,10 @@ def extract_invoice(path: str | Path, llm_call: LLMCall | None = None) -> Extrac
         return ExtractionResult(
             needs_human_review=True, errors=["no text could be read from the file"], ocr_method=method
         )
+    if mask_prompts_enabled():
+        # Phones, e-mails, IBANs and card numbers are not needed for the extracted fields; VÖEN,
+        # invoice numbers, dates and amounts are left untouched (see src/security/pii.py).
+        text = mask(text)
     result = extract_from_text(text, llm_call)
     result.ocr_method = method
     return result
