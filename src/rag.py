@@ -29,6 +29,9 @@ from langchain_openai import ChatOpenAI
 
 from src.config import PROJECT_ROOT, LLMConfig, get_llm_config
 from src.llm_client import LLMClient, get_client
+from src.rerank import retrieve
+from src.security.injection import UNTRUSTED_DATA_RULE
+from src.tracing import observe, update
 from src.vectorstore import load_vectorstore
 
 logger = logging.getLogger(__name__)
@@ -194,12 +197,15 @@ class RAGPipeline:
         return self._client
 
     def retrieve(self, question: str, k: int | None = None) -> list[Document]:
-        return self.vectorstore.similarity_search(question, k=k or self.top_k)
+        with observe("retrieval", as_type="retriever", input=question) as span:
+            docs = retrieve(self.vectorstore, question, k=k or self.top_k)
+            update(span, output=[f"{d.metadata.get('source')} p.{d.metadata.get('page')}" for d in docs])
+            return docs
 
     def _prepare(self, question: str, k: int | None) -> tuple[list[Document], list[dict]]:
         chunks = self.retrieve(question, k=k)
         messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": SYSTEM_PROMPT + "\n\n" + UNTRUSTED_DATA_RULE},
             {"role": "user", "content": USER_PROMPT_TEMPLATE.format(context=format_context(chunks), question=question)},
         ]
         return chunks, messages

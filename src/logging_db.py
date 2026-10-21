@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from src.config import PROJECT_ROOT
+from src.security.pii import mask
 
 DB_PATH = PROJECT_ROOT / "logs" / "requests.db"
 
@@ -57,8 +58,8 @@ def log_request(
             "VALUES (?, ?, ?, ?, ?, ?)",
             (
                 datetime.now(timezone.utc).isoformat(),
-                question,
-                answer,
+                mask(question),  # personal data (e-mail, phone, IBAN, card, FIN...) is never stored
+                mask(answer),
                 json.dumps(sources, ensure_ascii=False),
                 pipeline,
                 latency_ms,

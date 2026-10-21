@@ -11,6 +11,7 @@ Run with:
 
 from __future__ import annotations
 
+import itertools
 import json
 import logging
 import tempfile
@@ -31,7 +32,10 @@ from src.llm_client import LLMUnavailable
 from src.llm_stats import get_stats
 from src.logging_db import log_request
 from src.rag import RAGPipeline
+from src.security.guard import InjectionBlocked, check_answer, screen_question
+from src.security.injection import CANARY, REFUSAL
 from src.text_tools import TextToolError, summarize, translate
+from src.tracing import observe
 from src.voice import AUDIO_SUFFIXES, MAX_AUDIO_BYTES, VoiceUnavailable, transcribe
 
 logger = logging.getLogger(__name__)
@@ -109,6 +113,12 @@ async def llm_unavailable_handler(request: Request, exc: LLMUnavailable) -> JSON
     )
 
 
+@app.exception_handler(InjectionBlocked)
+async def injection_blocked_handler(request: Request, exc: InjectionBlocked) -> JSONResponse:
+    """The question matched a prompt-injection rule (src/security/injection.py); no LLM was called."""
+    return JSONResponse(status_code=400, content={"detail": str(exc), "blocked": "prompt_injection", "rules": exc.rules})
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
@@ -116,10 +126,12 @@ def health() -> dict:
 
 @app.post("/ask", response_model=AskResponse)
 def ask(request: AskRequest) -> AskResponse:
+    screened = screen_question(request.question)  # refuses injection attempts, masks personal data
     pipeline = get_pipeline()
     start = time.perf_counter()
     try:
-        result = pipeline.answer(request.question, k=request.top_k)
+        with observe("POST /ask", input=screened.text):  # Langfuse trace (no-op without keys)
+            result = pipeline.answer(screened.text, k=request.top_k)
     except RuntimeError as exc:
         # Raised by src.rag.get_llm() when no API key is configured -- surface
         # that as a clear 503 rather than a generic 500.
@@ -135,8 +147,8 @@ def ask(request: AskRequest) -> AskResponse:
         pipeline="rag",
         latency_ms=latency_ms,
     )
-
-    return AskResponse(answer=result["answer"], sources=result["sources"], latency_ms=latency_ms)
+    answer, leaked = check_answer(result["answer"])
+    return AskResponse(answer=answer, sources=[] if leaked else result["sources"], latency_ms=latency_ms)
 
 
 @app.post("/ask_agent", response_model=AskResponse)
@@ -144,10 +156,12 @@ def ask_agent(request: AskRequest) -> AskResponse:
     """Same contract as /ask, but routed through the tool-calling agent
     (src.agent.AgentPipeline), which may call the knowledge base, a
     calculator, and/or web search before answering."""
+    screened = screen_question(request.question)
     pipeline = get_agent_pipeline()
     start = time.perf_counter()
     try:
-        result = pipeline.answer(request.question)
+        with observe("POST /ask_agent", as_type="agent", input=screened.text):
+            result = pipeline.answer(screened.text)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except APIError as exc:
@@ -171,10 +185,11 @@ def ask_agent(request: AskRequest) -> AskResponse:
         latency_ms=latency_ms,
     )
 
+    answer, leaked = check_answer(result["answer"])
     return AskResponse(
-        answer=result["answer"],
-        sources=result.get("sources", []),
-        tool_calls=result["tool_calls"],
+        answer=answer,
+        sources=[] if leaked else result.get("sources", []),
+        tool_calls=[] if leaked else result["tool_calls"],
         latency_ms=latency_ms,
     )
 
@@ -230,6 +245,9 @@ async def ask_voice(
     return VoiceResponse(**answer.model_dump(), transcript=transcript)
 
 
+CANARY_PREFIX = CANARY[:5]  # "cnry-": stop the stream as soon as the marker starts to appear
+
+
 def _sse(event: dict) -> str:
     return f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
 
@@ -239,17 +257,22 @@ def ask_stream(request: AskRequest) -> StreamingResponse:
     """Same question and retrieval as /ask, but the answer is sent as server-sent events while the model
     writes it: `token` events, then one `done` event with the cleaned answer, sources and time to first token.
     Provider failures before the first token are normal 503/429 responses; later ones arrive as an `error` event."""
-    events = get_pipeline().stream_answer(request.question, k=request.top_k)
+    screened = screen_question(request.question)  # refused with 400 before any streaming starts
+    events = get_pipeline().stream_answer(screened.text, k=request.top_k)
     try:
         first = next(events)  # raises LLMUnavailable here, before the 200 header is sent
     except StopIteration:
         first = None
 
     def body():
+        streamed = ""
         try:
-            if first is not None:
-                yield _sse(first)
-            for event in events:
+            for event in itertools.chain([first] if first is not None else [], events):
+                if event["type"] == "token":
+                    streamed += event["text"]
+                    if CANARY_PREFIX in streamed:  # the system prompt is leaking: stop mid-stream
+                        yield _sse({"type": "error", "detail": REFUSAL, "blocked": "system_prompt_leak"})
+                        return
                 yield _sse(event)
         except LLMUnavailable as exc:
             yield _sse({"type": "error", "detail": str(exc), "escalate_to_human": True})

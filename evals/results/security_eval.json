@@ -1,0 +1,70 @@
+{
+  "prompt_injection": {
+    "attacks": 41,
+    "detected": 33,
+    "detection_rate": 0.805,
+    "by_kind": {
+      "direct": "28/28",
+      "paraphrase": "0/8",
+      "indirect": "5/5"
+    },
+    "missed": [
+      "pa01",
+      "pa02",
+      "pa03",
+      "pa04",
+      "pa05",
+      "pa06",
+      "pa07",
+      "pa08"
+    ],
+    "benign": 51,
+    "false_positives": 0,
+    "false_positive_rate": 0.0,
+    "false_positive_ids": []
+  },
+  "pii": {
+    "cases": 32,
+    "entities_expected": 29,
+    "recall": 1.0,
+    "precision": 1.0,
+    "per_entity": {
+      "CARD": {
+        "expected": 5,
+        "found": 5,
+        "correct": 5
+      },
+      "EMAIL": {
+        "expected": 5,
+        "found": 5,
+        "correct": 5
+      },
+      "FIN": {
+        "expected": 3,
+        "found": 3,
+        "correct": 3
+      },
+      "IBAN": {
+        "expected": 5,
+        "found": 5,
+        "correct": 5
+      },
+      "ID_DOCUMENT": {
+        "expected": 3,
+        "found": 3,
+        "correct": 3
+      },
+      "PHONE": {
+        "expected": 8,
+        "found": 8,
+        "correct": 8
+      }
+    },
+    "cases_not_exact": [],
+    "must_keep_values_damaged": []
+  },
+  "invoice_fields_after_masking": {
+    "text_invoices_checked": 5,
+    "fields_destroyed": []
+  }
+}

@@ -1,0 +1,315 @@
+{
+  "questions": 15,
+  "candidates": 12,
+  "vector_hit_rate@1": 0.933,
+  "vector_hit_rate@4": 1.0,
+  "reranked_hit_rate@1": 0.933,
+  "reranked_hit_rate@4": 1.0,
+  "questions_with_different_top4": 15,
+  "rerank_latency_ms": {
+    "p50": 850.5,
+    "max": 1593.0
+  },
+  "rows": [
+    {
+      "id": "q01",
+      "vector_hit@1": true,
+      "vector_hit@4": true,
+      "vector_top4_chunks": [
+        "wolfsberg_faqs_beneficial_ownership.pdf:p1",
+        "wolfsberg_faqs_beneficial_ownership.pdf:p1",
+        "wolfsberg_faqs_beneficial_ownership.pdf:p4",
+        "wolfsberg_faqs_beneficial_ownership.pdf:p2"
+      ],
+      "reranked_hit@1": true,
+      "reranked_hit@4": true,
+      "reranked_top4_chunks": [
+        "wolfsberg_faqs_beneficial_ownership.pdf:p1",
+        "wolfsberg_faqs_beneficial_ownership.pdf:p1",
+        "wolfsberg_faqs_beneficial_ownership.pdf:p1",
+        "wolfsberg_faqs_beneficial_ownership.pdf:p2"
+      ],
+      "top4_changed": true
+    },
+    {
+      "id": "q02",
+      "vector_hit@1": true,
+      "vector_hit@4": true,
+      "vector_top4_chunks": [
+        "fatf_recommendations_2025.pdf:p14",
+        "fatf_recommendations_2025.pdf:p15",
+        "fatf_recommendations_2025.pdf:p70",
+        "fatf_recommendations_2025.pdf:p19"
+      ],
+      "reranked_hit@1": true,
+      "reranked_hit@4": true,
+      "reranked_top4_chunks": [
+        "fatf_recommendations_2025.pdf:p70",
+        "fatf_recommendations_2025.pdf:p14",
+        "fatf_recommendations_2025.pdf:p15",
+        "fatf_recommendations_2025.pdf:p66"
+      ],
+      "top4_changed": true
+    },
+    {
+      "id": "q03",
+      "vector_hit@1": false,
+      "vector_hit@4": true,
+      "vector_top4_chunks": [
+        "azerbaijan_aml_law_unodc.pdf:p9",
+        "fatf_recommendations_2025.pdf:p73",
+        "fatf_recommendations_2025.pdf:p88",
+        "azerbaijan_aml_law_unodc.pdf:p10"
+      ],
+      "reranked_hit@1": false,
+      "reranked_hit@4": true,
+      "reranked_top4_chunks": [
+        "azerbaijan_aml_law_unodc.pdf:p9",
+        "fatf_recommendations_2025.pdf:p73",
+        "wolfsberg_correspondent_banking_principles_2022.pdf:p6",
+        "wolfsberg_pep_guidance.pdf:p7"
+      ],
+      "top4_changed": true
+    },
+    {
+      "id": "q04",
+      "vector_hit@1": true,
+      "vector_hit@4": true,
+      "vector_top4_chunks": [
+        "wolfsberg_pep_guidance.pdf:p4",
+        "wolfsberg_pep_guidance.pdf:p1",
+        "fatf_recommendations_2025.pdf:p133",
+        "wolfsberg_pep_guidance.pdf:p6"
+      ],
+      "reranked_hit@1": true,
+      "reranked_hit@4": true,
+      "reranked_top4_chunks": [
+        "wolfsberg_pep_guidance.pdf:p12",
+        "wolfsberg_pep_guidance.pdf:p8",
+        "wolfsberg_pep_guidance.pdf:p1",
+        "fatf_recommendations_2025.pdf:p133"
+      ],
+      "top4_changed": true
+    },
+    {
+      "id": "q05",
+      "vector_hit@1": true,
+      "vector_hit@4": true,
+      "vector_top4_chunks": [
+        "wolfsberg_pep_guidance.pdf:p5",
+        "wolfsberg_pep_guidance.pdf:p6",
+        "wolfsberg_pep_guidance.pdf:p4",
+        "wolfsberg_pep_guidance.pdf:p8"
+      ],
+      "reranked_hit@1": true,
+      "reranked_hit@4": true,
+      "reranked_top4_chunks": [
+        "wolfsberg_pep_guidance.pdf:p5",
+        "wolfsberg_pep_guidance.pdf:p8",
+        "wolfsberg_pep_guidance.pdf:p6",
+        "wolfsberg_pep_guidance.pdf:p4"
+      ],
+      "top4_changed": true
+    },
+    {
+      "id": "q06",
+      "vector_hit@1": true,
+      "vector_hit@4": true,
+      "vector_top4_chunks": [
+        "wolfsberg_source_of_wealth_funds_faqs.pdf:p5",
+        "wolfsberg_source_of_wealth_funds_faqs.pdf:p2",
+        "wolfsberg_source_of_wealth_funds_faqs.pdf:p3",
+        "wolfsberg_source_of_wealth_funds_faqs.pdf:p1"
+      ],
+      "reranked_hit@1": true,
+      "reranked_hit@4": true,
+      "reranked_top4_chunks": [
+        "wolfsberg_source_of_wealth_funds_faqs.pdf:p5",
+        "wolfsberg_source_of_wealth_funds_faqs.pdf:p3",
+        "wolfsberg_source_of_wealth_funds_faqs.pdf:p6",
+        "wolfsberg_source_of_wealth_funds_faqs.pdf:p5"
+      ],
+      "top4_changed": true
+    },
+    {
+      "id": "q07",
+      "vector_hit@1": true,
+      "vector_hit@4": true,
+      "vector_top4_chunks": [
+        "wolfsberg_sanctions_screening_guidance.pdf:p1",
+        "wolfsberg_sanctions_screening_guidance.pdf:p13",
+        "wolfsberg_sanctions_screening_guidance.pdf:p2",
+        "wolfsberg_sanctions_screening_guidance.pdf:p1"
+      ],
+      "reranked_hit@1": true,
+      "reranked_hit@4": true,
+      "reranked_top4_chunks": [
+        "wolfsberg_sanctions_screening_guidance.pdf:p1",
+        "wolfsberg_sanctions_screening_guidance.pdf:p9",
+        "wolfsberg_sanctions_screening_guidance.pdf:p2",
+        "wolfsberg_sanctions_screening_guidance.pdf:p1"
+      ],
+      "top4_changed": true
+    },
+    {
+      "id": "q08",
+      "vector_hit@1": true,
+      "vector_hit@4": true,
+      "vector_top4_chunks": [
+        "fatf_recommendations_2025.pdf:p31",
+        "fatf_recommendations_2025.pdf:p10",
+        "wolfsberg_risk_based_approach_guidance.pdf:p1",
+        "fatf_recommendations_2025.pdf:p15"
+      ],
+      "reranked_hit@1": true,
+      "reranked_hit@4": true,
+      "reranked_top4_chunks": [
+        "fatf_recommendations_2025.pdf:p31",
+        "fatf_recommendations_2025.pdf:p15",
+        "fatf_recommendations_2025.pdf:p10",
+        "fatf_recommendations_2025.pdf:p8"
+      ],
+      "top4_changed": true
+    },
+    {
+      "id": "q09",
+      "vector_hit@1": true,
+      "vector_hit@4": true,
+      "vector_top4_chunks": [
+        "fatf_recommendations_2025.pdf:p16",
+        "wolfsberg_correspondent_banking_principles_2022.pdf:p9",
+        "fatf_recommendations_2025.pdf:p82",
+        "fatf_recommendations_2025.pdf:p83"
+      ],
+      "reranked_hit@1": true,
+      "reranked_hit@4": true,
+      "reranked_top4_chunks": [
+        "fatf_recommendations_2025.pdf:p16",
+        "wolfsberg_correspondent_banking_principles_2022.pdf:p6",
+        "fatf_recommendations_2025.pdf:p76",
+        "wolfsberg_correspondent_banking_principles_2022.pdf:p9"
+      ],
+      "top4_changed": true
+    },
+    {
+      "id": "q10",
+      "vector_hit@1": true,
+      "vector_hit@4": true,
+      "vector_top4_chunks": [
+        "azerbaijan_aml_law_unodc.pdf:p8",
+        "fatf_azerbaijan_fur_2025.pdf:p5",
+        "azerbaijan_aml_law_unodc.pdf:p17",
+        "azerbaijan_aml_law_unodc.pdf:p17"
+      ],
+      "reranked_hit@1": true,
+      "reranked_hit@4": true,
+      "reranked_top4_chunks": [
+        "azerbaijan_aml_law_unodc.pdf:p12",
+        "fatf_azerbaijan_fur_2025.pdf:p28",
+        "azerbaijan_aml_law_unodc.pdf:p17",
+        "azerbaijan_aml_law_unodc.pdf:p8"
+      ],
+      "top4_changed": true
+    },
+    {
+      "id": "q11",
+      "vector_hit@1": true,
+      "vector_hit@4": true,
+      "vector_top4_chunks": [
+        "azerbaijan_aml_law_unodc.pdf:p17",
+        "azerbaijan_aml_law_unodc.pdf:p17",
+        "azerbaijan_aml_law_unodc.pdf:p18",
+        "cbar_law_on_banks.pdf:p31"
+      ],
+      "reranked_hit@1": true,
+      "reranked_hit@4": true,
+      "reranked_top4_chunks": [
+        "azerbaijan_aml_law_unodc.pdf:p17",
+        "azerbaijan_aml_law_unodc.pdf:p17",
+        "azerbaijan_aml_law_unodc.pdf:p18",
+        "azerbaijan_aml_law_unodc.pdf:p18"
+      ],
+      "top4_changed": true
+    },
+    {
+      "id": "q12",
+      "vector_hit@1": true,
+      "vector_hit@4": true,
+      "vector_top4_chunks": [
+        "cbar_notice_unlicensed_payment_institutions.pdf:p1",
+        "cbar_manual_payment_emoney_institutions_2024.pdf:p1",
+        "cbar_manual_payment_emoney_institutions_2024.pdf:p2",
+        "cbar_manual_payment_emoney_institutions_2024.pdf:p3"
+      ],
+      "reranked_hit@1": true,
+      "reranked_hit@4": true,
+      "reranked_top4_chunks": [
+        "cbar_notice_unlicensed_payment_institutions.pdf:p1",
+        "cbar_notice_unlicensed_payment_institutions.pdf:p1",
+        "cbar_notice_unlicensed_payment_institutions.pdf:p1",
+        "cbar_manual_payment_emoney_institutions_2024.pdf:p2"
+      ],
+      "top4_changed": true
+    },
+    {
+      "id": "q13",
+      "vector_hit@1": true,
+      "vector_hit@4": true,
+      "vector_top4_chunks": [
+        "wolfsberg_digital_customer_lifecycle_risk_management.pdf:p5",
+        "wolfsberg_digital_customer_lifecycle_risk_management.pdf:p1",
+        "wolfsberg_digital_customer_lifecycle_risk_management.pdf:p4",
+        "wolfsberg_digital_customer_lifecycle_risk_management.pdf:p7"
+      ],
+      "reranked_hit@1": true,
+      "reranked_hit@4": true,
+      "reranked_top4_chunks": [
+        "wolfsberg_digital_customer_lifecycle_risk_management.pdf:p2",
+        "wolfsberg_digital_customer_lifecycle_risk_management.pdf:p1",
+        "wolfsberg_digital_customer_lifecycle_risk_management.pdf:p3",
+        "wolfsberg_digital_customer_lifecycle_risk_management.pdf:p5"
+      ],
+      "top4_changed": true
+    },
+    {
+      "id": "q14",
+      "vector_hit@1": true,
+      "vector_hit@4": true,
+      "vector_top4_chunks": [
+        "fatf_azerbaijan_fur_2025.pdf:p16",
+        "fatf_azerbaijan_fur_2025.pdf:p1",
+        "fatf_azerbaijan_fur_2025.pdf:p3",
+        "fatf_azerbaijan_fur_2025.pdf:p4"
+      ],
+      "reranked_hit@1": true,
+      "reranked_hit@4": true,
+      "reranked_top4_chunks": [
+        "fatf_azerbaijan_fur_2025.pdf:p3",
+        "fatf_azerbaijan_fur_2025.pdf:p16",
+        "fatf_azerbaijan_fur_2025.pdf:p4",
+        "fatf_azerbaijan_fur_2025.pdf:p3"
+      ],
+      "top4_changed": true
+    },
+    {
+      "id": "q15",
+      "vector_hit@1": true,
+      "vector_hit@4": true,
+      "vector_top4_chunks": [
+        "cbar_regulation_payment_emoney_institutions_2024.pdf:p1",
+        "cbar_regulation_payment_emoney_institutions_2024.pdf:p9",
+        "cbar_regulation_payment_emoney_institutions_2024.pdf:p2",
+        "azerbaijan_aml_law_unodc.pdf:p8"
+      ],
+      "reranked_hit@1": true,
+      "reranked_hit@4": true,
+      "reranked_top4_chunks": [
+        "cbar_regulation_payment_emoney_institutions_2024.pdf:p1",
+        "cbar_regulation_payment_emoney_institutions_2024.pdf:p9",
+        "cbar_manual_payment_emoney_institutions_2024.pdf:p2",
+        "cbar_regulation_payment_emoney_institutions_2024.pdf:p8"
+      ],
+      "top4_changed": true
+    }
+  ]
+}

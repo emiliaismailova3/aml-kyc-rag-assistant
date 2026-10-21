@@ -25,6 +25,7 @@ import ast
 import json
 import logging
 import operator
+import os
 import re
 from datetime import date
 from pathlib import Path
@@ -41,7 +42,10 @@ from src.invoices.extract import extract_invoice as extract_invoice_file
 from src.llm_callbacks import LLMCallLogger
 from src.matching.matcher import CompanyMatcher, load_companies
 from src.rag import cited_refs, clean_citations, format_context, get_llm, is_refusal
+from src.rerank import retrieve
+from src.security.injection import UNTRUSTED_DATA_RULE, filter_untrusted
 from src.sql_tool import SQLNotAllowed, format_rows, run_readonly_query
+from src.tracing import langchain_callbacks
 from src.vectorstore import load_vectorstore
 
 logger = logging.getLogger(__name__)
@@ -58,6 +62,13 @@ AGENT_RECURSION_LIMIT = 10
 # they're usually a one-off glitch in how the model formatted a single call
 # rather than a persistent problem.
 AGENT_MAX_ATTEMPTS = 2
+
+# When the agent loops until the step limit (it kept searching without settling on an answer),
+# answer the question with the base RAG pipeline instead of returning nothing. Measured before this
+# existed: 4 of the 15 gold questions ended in the step limit (docs/STATUS.md). AGENT_RAG_FALLBACK=0
+# in .env turns it off, e.g. to measure the agent alone.
+def rag_fallback_enabled() -> bool:
+    return os.getenv("AGENT_RAG_FALLBACK", "1").strip().lower() not in {"0", "false", "no", "off"}
 
 # --- Calculator tool -------------------------------------------------------
 # A small hand-rolled safe evaluator (ast-based, whitelist of operators) is
@@ -145,9 +156,10 @@ def internet_search(query: str) -> str:
         return f"Web search failed ({type(exc).__name__}): {exc}. Try a different query or answer without it."
     if not results:
         return f"No web results found for {query!r}. Try a different, more specific query."
-    return "\n".join(
-        f"- {r.get('title')}: {r.get('body')} ({r.get('href')})" for r in results
-    )
+    # Web pages are untrusted: snippets carrying instructions aimed at the assistant are dropped.
+    lines, dropped = filter_untrusted([f"- {r.get('title')}: {r.get('body')} ({r.get('href')})" for r in results])
+    note = f"\n({dropped} result(s) removed: they contained instructions aimed at the assistant.)" if dropped else ""
+    return "\n".join(lines) + note
 
 
 # --- Knowledge base retrieval tool -------------------------------------------
@@ -167,7 +179,7 @@ def search_knowledge_base(query: str) -> str:
     excerpts, each labeled with its source document and page number.
     """
     store = load_vectorstore()
-    chunks = store.similarity_search(query, k=AGENT_TOP_K)
+    chunks = retrieve(store, query, k=AGENT_TOP_K)  # vector search + reranker (src/rerank.py)
     if not chunks:
         return "No relevant documents found in the knowledge base."
     return format_context(chunks)
@@ -262,6 +274,8 @@ corpus -- and call it AT MOST 2 times for a single question. If two searches
 with different queries haven't found it, stop searching and either answer with
 what you have (saying what's uncertain) or say you don't know; do not keep
 repeating or rephrasing the same search.
+The same applies to search_knowledge_base: call it AT MOST 3 times for one question.
+After that, answer from the excerpts you already have (citing them) or say you don't know.
 
 If, after using the appropriate tool(s), you still don't have enough information
 to answer confidently, say exactly: "I don't know based on the available
@@ -272,6 +286,8 @@ plain bracketed numbers matching the [1], [2], ... labels returned by
 search_knowledge_base (e.g. "beneficial owners must be identified [1]"). Do not
 use any other citation format. When you use the calculator or internet_search,
 make clear in your answer that you did so.
+
+{UNTRUSTED_DATA_RULE}
 """
 
 
@@ -314,6 +330,8 @@ class AgentResult(TypedDict, total=False):
     sources: list[dict]
     # Full text of every knowledge-base search result, for RAGAS evaluation.
     contexts: list[str]
+    # "rag_after_step_limit" when the base RAG pipeline answered because the agent looped
+    fallback: str
     # Set only when every attempt failed and `answer` is a fallback message
     # rather than a real answer -- batch callers (src.evaluate) must not treat
     # such a result as a genuine answer.
@@ -339,6 +357,24 @@ class AgentPipeline:
 
     def __init__(self):
         self.executor = build_agent_executor()
+        self._rag_pipeline = None
+
+    def _rag_fallback(self, question: str) -> AgentResult:
+        from src.rag import RAGPipeline
+
+        if self._rag_pipeline is None:
+            self._rag_pipeline = RAGPipeline()
+        logger.info("Answering %r with the base RAG pipeline after the agent's step limit", question)
+        rag = self._rag_pipeline.answer(question)
+        return {
+            "question": question,
+            "answer": rag["answer"],
+            "tool_calls": [{"tool": "rag_fallback", "input": {"question": question},
+                            "output": "agent hit its step limit; answered by the base RAG pipeline"}],
+            "sources": rag["sources"],
+            "contexts": rag["contexts"],
+            "fallback": "rag_after_step_limit",
+        }
 
     def answer(self, question: str) -> AgentResult:
         # Rate-limit (429) retries happen automatically inside the LLM client
@@ -353,7 +389,7 @@ class AgentPipeline:
             try:
                 result = self.executor.invoke(
                     {"messages": [{"role": "user", "content": question}]},
-                    config={"recursion_limit": AGENT_RECURSION_LIMIT},
+                    config={"recursion_limit": AGENT_RECURSION_LIMIT, "callbacks": langchain_callbacks()},
                 )
                 break
             except Exception as exc:  # noqa: BLE001 - deliberately broad: any
@@ -373,6 +409,8 @@ class AgentPipeline:
                     exc,
                 )
 
+        if result is None and isinstance(last_exc, GraphRecursionError) and rag_fallback_enabled():
+            return self._rag_fallback(question)
         if result is None:
             return {
                 "question": question,

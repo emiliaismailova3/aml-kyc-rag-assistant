@@ -1,0 +1,92 @@
+{
+  "A_primary_down_then_real_provider": {
+    "answered": true,
+    "text": "ok",
+    "provider": "groq",
+    "fell_back": true,
+    "attempts": 5,
+    "errors": [
+      "dead-primary/openai/gpt-oss-20b: APIConnectionError",
+      "dead-primary/openai/gpt-oss-20b: APIConnectionError",
+      "dead-primary/openai/gpt-oss-20b: APIConnectionError",
+      "dead-primary/openai/gpt-oss-20b: APIConnectionError"
+    ],
+    "seconds": 15.1,
+    "logged_attempts": [
+      {
+        "provider": "dead-primary",
+        "status": "error",
+        "error": "APIConnectionError"
+      },
+      {
+        "provider": "dead-primary",
+        "status": "error",
+        "error": "APIConnectionError"
+      },
+      {
+        "provider": "dead-primary",
+        "status": "error",
+        "error": "APIConnectionError"
+      },
+      {
+        "provider": "dead-primary",
+        "status": "error",
+        "error": "APIConnectionError"
+      },
+      {
+        "provider": "groq",
+        "status": "ok",
+        "error": null
+      }
+    ]
+  },
+  "B_all_providers_down": {
+    "answered": false,
+    "needs_human": true,
+    "rate_limited": false,
+    "message": "All LLM providers failed (dead-secondary/openai/gpt-oss-20b: APIConnectionError; dead-secondary/openai/gpt-oss-20b: APIConnectionError; dead-secondary/openai/gpt-oss-20b: APIConnectionError; dead-seco",
+    "seconds": 27.9,
+    "logged_attempts": [
+      {
+        "provider": "dead-primary",
+        "status": "error",
+        "error": "APIConnectionError"
+      },
+      {
+        "provider": "dead-primary",
+        "status": "error",
+        "error": "APIConnectionError"
+      },
+      {
+        "provider": "dead-primary",
+        "status": "error",
+        "error": "APIConnectionError"
+      },
+      {
+        "provider": "dead-primary",
+        "status": "error",
+        "error": "APIConnectionError"
+      },
+      {
+        "provider": "dead-secondary",
+        "status": "error",
+        "error": "APIConnectionError"
+      },
+      {
+        "provider": "dead-secondary",
+        "status": "error",
+        "error": "APIConnectionError"
+      },
+      {
+        "provider": "dead-secondary",
+        "status": "error",
+        "error": "APIConnectionError"
+      },
+      {
+        "provider": "dead-secondary",
+        "status": "error",
+        "error": "APIConnectionError"
+      }
+    ]
+  }
+}

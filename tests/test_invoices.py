@@ -96,16 +96,20 @@ def test_parse_json_reply_handles_code_fences_and_chatter():
         parse_json_reply("no json here")
 
 
+# Document text that contains the values in VALID (the grounding check requires them to be printed).
+DOC = "Xəzər Logistika MMC  VÖEN: 1234567890  Invoice No: INV-1  Date: 01.03.2026  TOTAL: 150.00 AZN"
+
+
 def test_extraction_succeeds_first_time():
     llm = ScriptedLLM(json.dumps(VALID))
-    result = extract_from_text("some invoice text", llm)
+    result = extract_from_text(DOC, llm)
     assert result.invoice.voen == "1234567890"
     assert result.attempts == 1 and not result.needs_human_review
 
 
 def test_extraction_repairs_after_validation_error():
     llm = ScriptedLLM(json.dumps(_with(voen="123")), json.dumps(VALID))
-    result = extract_from_text("text", llm)
+    result = extract_from_text(DOC, llm)
     assert result.invoice is not None and result.attempts == 2
     # the second prompt must tell the model what was wrong
     assert "10 digits" in llm.calls[1][-1]["content"]
@@ -122,7 +126,7 @@ def test_extraction_gives_up_after_two_retries_and_flags_human_review():
 
 def test_extraction_survives_non_json_reply():
     llm = ScriptedLLM("I cannot do that", json.dumps(VALID))
-    assert extract_from_text("text", llm).invoice is not None
+    assert extract_from_text(DOC, llm).invoice is not None
 
 
 # --- OCR helpers --------------------------------------------------------------
@@ -210,3 +214,33 @@ def test_tesseract_command_can_be_set_from_the_environment(monkeypatch):
     monkeypatch.setattr(pytesseract.pytesseract, "tesseract_cmd", "tesseract")
     _configure_tesseract()
     assert pytesseract.pytesseract.tesseract_cmd == "C:/somewhere/tesseract.exe"
+
+
+# --- grounding: extracted values must be printed in the document ---------------------------
+
+def test_a_well_formed_but_invented_voen_goes_to_a_human_without_repair():
+    llm = ScriptedLLM(json.dumps(_with(voen="0000000000")), json.dumps(VALID))
+    result = extract_from_text(DOC.replace("1234567890", "not printed"), llm)
+    assert result.invoice is None and result.needs_human_review
+    assert "voen" in result.errors[-1] and result.attempts == 1  # no repair round that could invent again
+
+
+def test_an_invented_total_is_caught():
+    llm = ScriptedLLM(json.dumps(_with(total_amount="999.00", line_items=[])))
+    result = extract_from_text(DOC, llm)
+    assert result.needs_human_review and "total_amount" in result.errors[-1]
+
+
+@pytest.mark.parametrize("printed", ["150.00", "150,00", "1 150,00", "150"])
+def test_totals_are_found_in_common_number_formats(printed):
+    from decimal import Decimal
+
+    from src.invoices.grounding import _numbers_in
+
+    assert Decimal(printed.replace(" ", "").replace(",", ".")) in _numbers_in(f"TOTAL: {printed} AZN")
+
+
+def test_repair_prompt_forbids_guessing():
+    llm = ScriptedLLM(json.dumps(_with(voen="123")), json.dumps(VALID))
+    extract_from_text(DOC, llm)
+    assert "do not guess" in llm.calls[1][-1]["content"]

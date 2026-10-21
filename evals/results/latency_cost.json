@@ -1,0 +1,455 @@
+{
+  "rag": {
+    "latency": {
+      "n": 10,
+      "p50_ms": 1512.7,
+      "p95_ms": 2751.9,
+      "mean_ms": 1592.5
+    },
+    "failed_requests": 0,
+    "llm_calls": 10,
+    "failed_calls": 0,
+    "avg_input_tokens_per_request": 1570.8,
+    "avg_output_tokens_per_request": 390.0,
+    "avg_est_cost_usd_per_request": 0.000528,
+    "total_est_cost_usd": 0.005281,
+    "tiers": [
+      "main"
+    ],
+    "models": [
+      "openai/gpt-oss-120b"
+    ]
+  },
+  "sql_via_agent": {
+    "latency": {
+      "n": 3,
+      "p50_ms": 1194.3,
+      "p95_ms": 1733.0,
+      "mean_ms": 1342.5
+    },
+    "failed_requests": 0,
+    "llm_calls": 6,
+    "failed_calls": 0,
+    "avg_input_tokens_per_request": 2348.0,
+    "avg_output_tokens_per_request": 138.3,
+    "avg_est_cost_usd_per_request": 0.000456,
+    "total_est_cost_usd": 0.001368,
+    "runs": [
+      {
+        "id": "t11",
+        "tools": [
+          "sql_query"
+        ],
+        "error": null
+      },
+      {
+        "id": "t12",
+        "tools": [
+          "sql_query"
+        ],
+        "error": null
+      },
+      {
+        "id": "t13",
+        "tools": [
+          "sql_query"
+        ],
+        "error": null
+      }
+    ],
+    "tiers": [
+      "main"
+    ],
+    "models": [
+      "openai/gpt-oss-120b"
+    ]
+  },
+  "invoice_extraction": {
+    "latency": {
+      "n": 15,
+      "p50_ms": 1422.1,
+      "p95_ms": 2701.1,
+      "mean_ms": 1494.4
+    },
+    "failed_requests": 0,
+    "llm_calls": 15,
+    "failed_calls": 0,
+    "avg_input_tokens_per_request": 382.9,
+    "avg_output_tokens_per_request": 417.5,
+    "avg_est_cost_usd_per_request": 0.000154,
+    "total_est_cost_usd": 0.002309,
+    "rows": [
+      {
+        "file": "inv_01_text.pdf",
+        "kind": "text",
+        "attempts": 1,
+        "needs_human_review": false,
+        "fields_correct": {
+          "company_name": true,
+          "voen": true,
+          "invoice_number": true,
+          "issue_date": true,
+          "total_amount": true,
+          "currency": true
+        },
+        "match_with_voen": {
+          "correct": true,
+          "method": "voen"
+        },
+        "match_name_only": {
+          "correct": true,
+          "review": false,
+          "method": "exact_name"
+        }
+      },
+      {
+        "file": "inv_02_text.pdf",
+        "kind": "text",
+        "attempts": 1,
+        "needs_human_review": false,
+        "fields_correct": {
+          "company_name": true,
+          "voen": true,
+          "invoice_number": true,
+          "issue_date": true,
+          "total_amount": true,
+          "currency": true
+        },
+        "match_with_voen": {
+          "correct": true,
+          "method": "voen"
+        },
+        "match_name_only": {
+          "correct": true,
+          "review": false,
+          "method": "exact_name"
+        }
+      },
+      {
+        "file": "inv_03_text.pdf",
+        "kind": "text",
+        "attempts": 1,
+        "needs_human_review": false,
+        "fields_correct": {
+          "company_name": true,
+          "voen": true,
+          "invoice_number": true,
+          "issue_date": true,
+          "total_amount": true,
+          "currency": true
+        },
+        "match_with_voen": {
+          "correct": true,
+          "method": "voen"
+        },
+        "match_name_only": {
+          "correct": true,
+          "review": false,
+          "method": "exact_name"
+        }
+      },
+      {
+        "file": "inv_04_text.pdf",
+        "kind": "text",
+        "attempts": 1,
+        "needs_human_review": false,
+        "fields_correct": {
+          "company_name": true,
+          "voen": true,
+          "invoice_number": true,
+          "issue_date": true,
+          "total_amount": true,
+          "currency": true
+        },
+        "match_with_voen": {
+          "correct": true,
+          "method": "voen"
+        },
+        "match_name_only": {
+          "correct": true,
+          "review": false,
+          "method": "exact_name"
+        }
+      },
+      {
+        "file": "inv_05_text.pdf",
+        "kind": "text",
+        "attempts": 1,
+        "needs_human_review": false,
+        "fields_correct": {
+          "company_name": true,
+          "voen": true,
+          "invoice_number": true,
+          "issue_date": true,
+          "total_amount": true,
+          "currency": true
+        },
+        "match_with_voen": {
+          "correct": true,
+          "method": "voen"
+        },
+        "match_name_only": {
+          "correct": true,
+          "review": false,
+          "method": "exact_name"
+        }
+      },
+      {
+        "file": "inv_06_clean.png",
+        "kind": "clean",
+        "attempts": 1,
+        "needs_human_review": false,
+        "fields_correct": {
+          "company_name": false,
+          "voen": true,
+          "invoice_number": true,
+          "issue_date": true,
+          "total_amount": true,
+          "currency": true
+        },
+        "match_with_voen": {
+          "correct": true,
+          "method": "voen"
+        },
+        "match_name_only": {
+          "correct": true,
+          "review": false,
+          "method": "exact_name"
+        }
+      },
+      {
+        "file": "inv_07_clean.png",
+        "kind": "clean",
+        "attempts": 1,
+        "needs_human_review": false,
+        "fields_correct": {
+          "company_name": false,
+          "voen": true,
+          "invoice_number": true,
+          "issue_date": true,
+          "total_amount": true,
+          "currency": true
+        },
+        "match_with_voen": {
+          "correct": true,
+          "method": "voen"
+        },
+        "match_name_only": {
+          "correct": true,
+          "review": false,
+          "method": "exact_name"
+        }
+      },
+      {
+        "file": "inv_08_clean.png",
+        "kind": "clean",
+        "attempts": 1,
+        "needs_human_review": false,
+        "fields_correct": {
+          "company_name": false,
+          "voen": true,
+          "invoice_number": true,
+          "issue_date": true,
+          "total_amount": true,
+          "currency": true
+        },
+        "match_with_voen": {
+          "correct": true,
+          "method": "voen"
+        },
+        "match_name_only": {
+          "correct": false,
+          "review": true,
+          "method": "embedding"
+        }
+      },
+      {
+        "file": "inv_09_clean.png",
+        "kind": "clean",
+        "attempts": 1,
+        "needs_human_review": false,
+        "fields_correct": {
+          "company_name": false,
+          "voen": true,
+          "invoice_number": true,
+          "issue_date": true,
+          "total_amount": true,
+          "currency": true
+        },
+        "match_with_voen": {
+          "correct": true,
+          "method": "voen"
+        },
+        "match_name_only": {
+          "correct": true,
+          "review": false,
+          "method": "exact_name"
+        }
+      },
+      {
+        "file": "inv_10_clean.png",
+        "kind": "clean",
+        "attempts": 1,
+        "needs_human_review": false,
+        "fields_correct": {
+          "company_name": false,
+          "voen": true,
+          "invoice_number": true,
+          "issue_date": true,
+          "total_amount": true,
+          "currency": true
+        },
+        "match_with_voen": {
+          "correct": true,
+          "method": "voen"
+        },
+        "match_name_only": {
+          "correct": false,
+          "review": true,
+          "method": "fuzzy"
+        }
+      },
+      {
+        "file": "inv_11_noisy_jpg.jpg",
+        "kind": "noisy_jpg",
+        "attempts": 1,
+        "needs_human_review": false,
+        "fields_correct": {
+          "company_name": false,
+          "voen": true,
+          "invoice_number": true,
+          "issue_date": true,
+          "total_amount": true,
+          "currency": true
+        },
+        "match_with_voen": {
+          "correct": true,
+          "method": "voen"
+        },
+        "match_name_only": {
+          "correct": true,
+          "review": false,
+          "method": "exact_name"
+        }
+      },
+      {
+        "file": "inv_12_noisy_jpg.jpg",
+        "kind": "noisy_jpg",
+        "attempts": 1,
+        "needs_human_review": false,
+        "fields_correct": {
+          "company_name": false,
+          "voen": true,
+          "invoice_number": true,
+          "issue_date": true,
+          "total_amount": true,
+          "currency": true
+        },
+        "match_with_voen": {
+          "correct": true,
+          "method": "voen"
+        },
+        "match_name_only": {
+          "correct": false,
+          "review": true,
+          "method": "fuzzy"
+        }
+      },
+      {
+        "file": "inv_13_noisy_jpg.jpg",
+        "kind": "noisy_jpg",
+        "attempts": 1,
+        "needs_human_review": false,
+        "fields_correct": {
+          "company_name": false,
+          "voen": true,
+          "invoice_number": true,
+          "issue_date": true,
+          "total_amount": true,
+          "currency": true
+        },
+        "match_with_voen": {
+          "correct": true,
+          "method": "voen"
+        },
+        "match_name_only": {
+          "correct": false,
+          "review": true,
+          "method": "fuzzy"
+        }
+      },
+      {
+        "file": "inv_14_noisy_pdf.pdf",
+        "kind": "noisy_pdf",
+        "attempts": 1,
+        "needs_human_review": false,
+        "fields_correct": {
+          "company_name": true,
+          "voen": true,
+          "invoice_number": true,
+          "issue_date": true,
+          "total_amount": true,
+          "currency": true
+        },
+        "match_with_voen": {
+          "correct": true,
+          "method": "voen"
+        },
+        "match_name_only": {
+          "correct": true,
+          "review": false,
+          "method": "exact_name"
+        }
+      },
+      {
+        "file": "inv_15_noisy_pdf.pdf",
+        "kind": "noisy_pdf",
+        "attempts": 1,
+        "needs_human_review": false,
+        "fields_correct": {
+          "company_name": false,
+          "voen": true,
+          "invoice_number": true,
+          "issue_date": true,
+          "total_amount": true,
+          "currency": true
+        },
+        "match_with_voen": {
+          "correct": true,
+          "method": "voen"
+        },
+        "match_name_only": {
+          "correct": false,
+          "review": true,
+          "method": "fuzzy"
+        }
+      }
+    ],
+    "tiers": [
+      "small"
+    ],
+    "models": [
+      "openai/gpt-oss-20b"
+    ],
+    "accuracy_this_run": {
+      "extracted": 15,
+      "of": 15,
+      "company_name": 0.4,
+      "voen": 1.0,
+      "invoice_number": 1.0,
+      "issue_date": 1.0,
+      "total_amount": 1.0,
+      "currency": 1.0,
+      "company_matched_correctly_with_voen": 1.0,
+      "company_matched_correctly_name_only": 0.667,
+      "name_only_sent_to_review": 5
+    }
+  },
+  "small_model_routing": {
+    "small_tier_calls": 15,
+    "est_cost_small_usd": 0.002309,
+    "est_cost_if_main_usd": 0.005558,
+    "est_saving_pct": 58.5,
+    "note": "same token counts re-priced; output quality of the main model on these calls not measured"
+  }
+}
