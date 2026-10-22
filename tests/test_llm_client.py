@@ -286,3 +286,28 @@ def test_stats_endpoint_summarises_recorded_calls(tmp_path, monkeypatch):
 def test_stats_with_no_calls(tmp_path):
     engine = create_engine(f"sqlite:///{(tmp_path / 'empty.db').as_posix()}")
     assert llm_stats.get_stats(engine)["calls"] == 0
+
+
+# --- Retry-After ------------------------------------------------------------------------------
+
+class RateLimited(Exception):
+    status_code = 429
+
+    def __init__(self, retry_after):
+        super().__init__("429")
+        self.response = type("R", (), {"headers": {"retry-after": retry_after}})()
+
+
+def test_retry_waits_at_least_as_long_as_the_provider_asks():
+    from src.llm_client import wait_before_retry
+
+    assert wait_before_retry(RateLimited("12"), attempt=0, rng=random.Random(0)) >= 12
+    assert wait_before_retry(RateLimited("999"), attempt=0, rng=random.Random(0)) <= 30.0  # capped
+    assert wait_before_retry(ValueError("no header"), attempt=0, rng=random.Random(0)) <= 1.0
+
+
+def test_client_sleeps_for_the_retry_after_value():
+    provider = FakeProvider("p", [RateLimited("9"), "ok"])
+    client, log = make_client(provider)
+    assert client.complete(MESSAGES).text == "ok"
+    assert [r["slept"] for r in log if "slept" in r][0] >= 9

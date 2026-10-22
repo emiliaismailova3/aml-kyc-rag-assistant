@@ -33,6 +33,7 @@ from typing import TypedDict
 
 from ddgs import DDGS
 from langchain.agents import create_agent
+from langchain.agents.middleware import ToolCallLimitMiddleware
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
@@ -40,6 +41,7 @@ from langgraph.errors import GraphRecursionError
 from src.config import PROJECT_ROOT, get_llm_config
 from src.invoices.extract import extract_invoice as extract_invoice_file
 from src.llm_callbacks import LLMCallLogger
+from src.llm_client import LLMUnavailable
 from src.matching.matcher import CompanyMatcher, load_companies
 from src.rag import cited_refs, clean_citations, format_context, get_llm, is_refusal
 from src.rerank import retrieve
@@ -55,7 +57,9 @@ logger = logging.getLogger(__name__)
 # internet_search calls in a row for one question) can't run away burning
 # rate-limited API calls. ~10 allows e.g. 2 searches + a knowledge-base
 # lookup + a calculator call with room to spare, while still failing fast.
-AGENT_RECURSION_LIMIT = 10
+# LangGraph counts every node as a step, including the two ToolCallLimitMiddleware hooks after each model
+# call: one tool round is ~4 steps. 25 leaves room for ~5 rounds and the answer; the tool caps bound the cost.
+AGENT_RECURSION_LIMIT = 25
 
 # Non-rate-limit tool errors (e.g. Groq's 400 tool_use_failed when a model
 # passes malformed tool arguments) are retried once before giving up, since
@@ -168,6 +172,13 @@ def internet_search(query: str) -> str:
 # prompt and the tool-call history, and with 8 chunks it exceeded Groq's free-tier
 # limit of 8000 tokens per request for gpt-oss-120b (HTTP 413: 8289 requested).
 AGENT_TOP_K = 4
+
+
+# Hard caps per question, enforced by LangChain's ToolCallLimitMiddleware (see build_agent_executor).
+# The prompt states the same limits, but the model ignored them: on one gold question it searched the
+# knowledge base 5 times with ever narrower queries and hit the step limit without answering.
+MAX_KB_SEARCHES = 3
+MAX_WEB_SEARCHES = 2
 
 
 @tool
@@ -347,7 +358,11 @@ def build_agent_executor():
     """
     config = get_llm_config()
     llm = get_llm(config, callbacks=[LLMCallLogger(config.provider, config.model)])
-    return create_agent(model=llm, tools=TOOLS, system_prompt=_build_system_prompt())
+    limits = [
+        ToolCallLimitMiddleware(tool_name="search_knowledge_base", run_limit=MAX_KB_SEARCHES),
+        ToolCallLimitMiddleware(tool_name="internet_search", run_limit=MAX_WEB_SEARCHES),
+    ]
+    return create_agent(model=llm, tools=TOOLS, system_prompt=_build_system_prompt(), middleware=limits)
 
 
 class AgentPipeline:
@@ -365,7 +380,11 @@ class AgentPipeline:
         if self._rag_pipeline is None:
             self._rag_pipeline = RAGPipeline()
         logger.info("Answering %r with the base RAG pipeline after the agent's step limit", question)
-        rag = self._rag_pipeline.answer(question)
+        try:
+            rag = self._rag_pipeline.answer(question)
+        except LLMUnavailable as exc:
+            return {"question": question, "answer": "The assistant could not reach any LLM provider.",
+                    "tool_calls": [], "sources": [], "contexts": [], "error": type(exc).__name__}
         return {
             "question": question,
             "answer": rag["answer"],
@@ -440,7 +459,8 @@ class AgentPipeline:
                 for call in message.tool_calls:
                     observation = tool_messages_by_id.get(call["id"])
                     output = str(observation.content) if observation else ""
-                    if call["name"] == "search_knowledge_base" and output:
+                    # Only real search results (a call blocked by the search cap returns an error text).
+                    if call["name"] == "search_knowledge_base" and _CONTEXT_HEADER_RE.search(output):
                         kb_outputs.append(output)
                     tool_calls.append(
                         {

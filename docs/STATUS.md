@@ -43,8 +43,12 @@ All numbers come from scripts in `evals/` (results in `evals/results/`).
   receipts (seller 43%, date 40%, total 60%). Synthetic invoices: unchanged.
 - **Reranker:** no measured gain. Base RAG at k=4 refused 5/15 with and without it; the agent still looped on
   q02, q05, q07 (that run was cut short by Groq's daily limit). Costs ~0.85 s per query on this laptop's CPU.
-- **Agent loop fixes (not yet re-measured live):** at most 3 knowledge-base searches per question; after the
-  step limit the base RAG pipeline answers instead of an error (unit-tested).
+- **Agent loops (fixed 2026-10-22, `evals/agent_loop_check.py`):** the step-by-step trace showed the agent had
+  written its answer when LangGraph's step counter, which also counts middleware nodes, cut it off; it also
+  ignored the prompt rule "at most 3 searches". Now: hard caps via `ToolCallLimitMiddleware` (3 knowledge-base,
+  2 web searches), recursion limit 25, base-RAG fallback. Result on the 15 gold questions: 0 unanswered (was 4),
+  12 answered by the agent, 3 by the fallback (q05, q07, q09 still reach the step limit), 1 refusal (q07).
+  The 16 routing scenarios have not been re-run after this fix.
 - **Prompt injection:** rules block 28/28 direct and 5/5 in-document attacks, 0/8 paraphrases; 0 false
   positives on 51 benign questions. The model-level layers (untrusted-data rule, canary) are not measured
   against the paraphrases yet. Test set written by the same author as the rules.

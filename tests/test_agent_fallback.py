@@ -49,3 +49,43 @@ def test_fallback_can_be_switched_off(monkeypatch):
 
 def test_prompt_caps_knowledge_base_searches():
     assert "search_knowledge_base: call it AT MOST 3 times" in agent_module._build_system_prompt()
+
+
+def test_agent_has_hard_tool_call_limits():
+    from langchain.agents.middleware import ToolCallLimitMiddleware
+
+    assert agent_module.MAX_KB_SEARCHES == 3 and agent_module.MAX_WEB_SEARCHES == 2
+    assert ToolCallLimitMiddleware(tool_name="search_knowledge_base", run_limit=3)  # constructible in this LangChain version
+
+
+def test_fallback_that_cannot_reach_the_llm_returns_an_error_not_an_exception(monkeypatch):
+    from src.llm_client import LLMUnavailable
+
+    class DownRAG(FakeRAG):
+        def answer(self, question, k=None):
+            raise LLMUnavailable("all providers failed")
+
+    monkeypatch.setattr(rag_module, "RAGPipeline", DownRAG)
+    result = make_agent().answer("q")
+    assert result["error"] == "LLMUnavailable"
+
+
+def test_a_blocked_search_does_not_hide_the_real_sources():
+    from langchain_core.messages import AIMessage, ToolMessage
+
+    real = "[1] (Source: fatf_recommendations_2025.pdf, p. 15)\nCDD measures ..."
+
+    class Executor:
+        def invoke(self, payload, config):
+            call = lambda i: {"name": "search_knowledge_base", "args": {"query": "q"}, "id": f"c{i}"}  # noqa: E731
+            return {"messages": [
+                AIMessage(content="", tool_calls=[call(1)]), ToolMessage(content=real, tool_call_id="c1"),
+                AIMessage(content="", tool_calls=[call(2)]),
+                ToolMessage(content="Tool call limit exceeded. Do not call search_knowledge_base again.", tool_call_id="c2"),
+                AIMessage(content="Institutions must identify the customer [1]."),
+            ]}
+
+    pipeline = make_agent()
+    pipeline.executor = Executor()
+    result = pipeline.answer("q")
+    assert result["sources"] and result["sources"][0]["source"] == "fatf_recommendations_2025.pdf"

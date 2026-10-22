@@ -104,6 +104,26 @@ def backoff_delay(attempt: int, rng: random.Random | None = None) -> float:
     return rng.uniform(ceiling / 2, ceiling)
 
 
+def retry_after_seconds(exc: Exception) -> float | None:
+    """Seconds the provider asked us to wait (HTTP Retry-After header on a 429), if it said."""
+    headers = getattr(getattr(exc, "response", None), "headers", None) or {}
+    try:
+        value = headers.get("retry-after") if hasattr(headers, "get") else None
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def wait_before_retry(exc: Exception, attempt: int, rng: random.Random | None = None) -> float:
+    """Our backoff, but never shorter than what the provider asked for (capped at BACKOFF_CAP_SECONDS).
+    Without this, a per-minute token limit outlasted the 1+2+4 s backoff and the call was given up."""
+    delay = backoff_delay(attempt, rng)
+    asked = retry_after_seconds(exc)
+    if asked is not None:
+        delay = max(delay, min(BACKOFF_CAP_SECONDS, asked + 0.5))
+    return delay
+
+
 def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
     price_in, price_out = get_prices().get(model, (0.0, 0.0))
     return (input_tokens * price_in + output_tokens * price_out) / 1_000_000
@@ -287,7 +307,7 @@ class LLMClient:
                     if not is_retryable(exc) or retry_number == MAX_RETRIES:
                         logger.warning("Provider %s gave up after %d attempt(s): %s", provider.name, retry_number + 1, exc)
                         break  # next provider
-                    delay = backoff_delay(retry_number, self._rng)
+                    delay = wait_before_retry(exc, retry_number, self._rng)
                     logger.info("Provider %s failed (%s); retrying in %.1fs", provider.name, error_name, delay)
                     self._sleep(delay)
                     continue
@@ -353,7 +373,7 @@ class LLMClient:
                         ) from exc
                     if not is_retryable(exc) or retry_number == MAX_RETRIES:
                         break  # next provider
-                    self._sleep(backoff_delay(retry_number, self._rng))
+                    self._sleep(wait_before_retry(exc, retry_number, self._rng))
                     continue
 
                 input_tokens, output_tokens = prompt_chars // 4, sent // 4
