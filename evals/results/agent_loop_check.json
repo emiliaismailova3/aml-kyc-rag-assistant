@@ -1,0 +1,194 @@
+{
+  "questions": 15,
+  "step_limit_hits": 3,
+  "unanswered_errors": 0,
+  "refused": 1,
+  "answered": 14,
+  "baseline_before_fixes": {
+    "step_limit_no_answer": 4,
+    "of": 15,
+    "note": "recursion_limit 10, no tool caps, no fallback"
+  },
+  "rows": [
+    {
+      "id": "q01",
+      "step_limit_then_rag": false,
+      "error": null,
+      "refused": false,
+      "tools": [
+        "search_knowledge_base"
+      ],
+      "kb_searches": 1,
+      "seconds": 28.2
+    },
+    {
+      "id": "q02",
+      "step_limit_then_rag": false,
+      "error": null,
+      "refused": false,
+      "tools": [
+        "search_knowledge_base",
+        "search_knowledge_base",
+        "search_knowledge_base",
+        "search_knowledge_base"
+      ],
+      "kb_searches": 4,
+      "seconds": 28.0
+    },
+    {
+      "id": "q03",
+      "step_limit_then_rag": false,
+      "error": null,
+      "refused": false,
+      "tools": [
+        "search_knowledge_base",
+        "search_knowledge_base",
+        "search_knowledge_base",
+        "search_knowledge_base"
+      ],
+      "kb_searches": 4,
+      "seconds": 43.7
+    },
+    {
+      "id": "q04",
+      "step_limit_then_rag": false,
+      "error": null,
+      "refused": false,
+      "tools": [
+        "search_knowledge_base",
+        "search_knowledge_base"
+      ],
+      "kb_searches": 2,
+      "seconds": 4.2
+    },
+    {
+      "id": "q05",
+      "step_limit_then_rag": true,
+      "error": null,
+      "refused": false,
+      "tools": [
+        "rag_fallback"
+      ],
+      "kb_searches": 0,
+      "seconds": 93.8
+    },
+    {
+      "id": "q06",
+      "step_limit_then_rag": false,
+      "error": null,
+      "refused": false,
+      "tools": [
+        "search_knowledge_base",
+        "search_knowledge_base",
+        "search_knowledge_base",
+        "search_knowledge_base"
+      ],
+      "kb_searches": 4,
+      "seconds": 54.7
+    },
+    {
+      "id": "q07",
+      "step_limit_then_rag": true,
+      "error": null,
+      "refused": true,
+      "tools": [
+        "rag_fallback"
+      ],
+      "kb_searches": 0,
+      "seconds": 51.0
+    },
+    {
+      "id": "q08",
+      "step_limit_then_rag": false,
+      "error": null,
+      "refused": false,
+      "tools": [
+        "search_knowledge_base"
+      ],
+      "kb_searches": 1,
+      "seconds": 2.5
+    },
+    {
+      "id": "q09",
+      "step_limit_then_rag": true,
+      "error": null,
+      "refused": false,
+      "tools": [
+        "rag_fallback"
+      ],
+      "kb_searches": 0,
+      "seconds": 101.4
+    },
+    {
+      "id": "q10",
+      "step_limit_then_rag": false,
+      "error": null,
+      "refused": false,
+      "tools": [
+        "search_knowledge_base",
+        "search_knowledge_base",
+        "search_knowledge_base",
+        "search_knowledge_base",
+        "internet_search"
+      ],
+      "kb_searches": 4,
+      "seconds": 62.9
+    },
+    {
+      "id": "q11",
+      "step_limit_then_rag": false,
+      "error": null,
+      "refused": false,
+      "tools": [
+        "search_knowledge_base"
+      ],
+      "kb_searches": 1,
+      "seconds": 3.6
+    },
+    {
+      "id": "q12",
+      "step_limit_then_rag": false,
+      "error": null,
+      "refused": false,
+      "tools": [
+        "search_knowledge_base"
+      ],
+      "kb_searches": 1,
+      "seconds": 4.0
+    },
+    {
+      "id": "q13",
+      "step_limit_then_rag": false,
+      "error": null,
+      "refused": false,
+      "tools": [
+        "search_knowledge_base"
+      ],
+      "kb_searches": 1,
+      "seconds": 3.8
+    },
+    {
+      "id": "q14",
+      "step_limit_then_rag": false,
+      "error": null,
+      "refused": false,
+      "tools": [
+        "search_knowledge_base",
+        "search_knowledge_base"
+      ],
+      "kb_searches": 2,
+      "seconds": 5.9
+    },
+    {
+      "id": "q15",
+      "step_limit_then_rag": false,
+      "error": null,
+      "refused": false,
+      "tools": [
+        "search_knowledge_base"
+      ],
+      "kb_searches": 1,
+      "seconds": 3.0
+    }
+  ]
+}
