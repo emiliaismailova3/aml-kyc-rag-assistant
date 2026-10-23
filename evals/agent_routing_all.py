@@ -19,7 +19,7 @@ from scripts.check_agent_routing import SCENARIOS_PATH, passed
 from src.agent import AgentPipeline
 
 OUT = Path(__file__).resolve().parent / "results" / "agent_routing_all.json"
-PAUSE_SECONDS = 20.0
+PAUSE_SECONDS = 30.0
 
 
 def main() -> None:
