@@ -1,8 +1,22 @@
 # Roadmap: from compliance RAG to an Azerbaijani voice banking assistant
 
-Goal: a voice and text assistant for the customers of a (fictional) Azerbaijani bank. It answers in
-Azerbaijani or Russian from the bank's documents and the Central Bank's rules, and hands anything it
-cannot handle safely to a human operator. The full brief is written in stage 1 (`docs/PRODUCT.md`).
+Goal: a voice and text assistant for retail bank customers in Azerbaijan. It answers in Azerbaijani or
+Russian from the **public** documents of Azerbaijani banks (tariffs, card and deposit conditions, FAQ) and the
+Central Bank's rules, can compare banks, and hands anything it cannot handle safely to a human operator.
+The full brief is written in stage 1 (`docs/PRODUCT.md`).
+
+## Data principles (where the trust comes from)
+
+- **Real documents**: public bank and CBAR documents, every source listed with a link. The project uses them
+  as a knowledge source and never presents itself as any bank (no bank names or logos as branding;
+  a "not affiliated" note in the README).
+- **Real questions**: the eval set comes from questions customers actually ask (bank FAQ pages, public
+  comments, forums), paraphrased, with no names or personal data kept.
+- **Real voices**: recordings from 10–15 people of different ages (with their consent) in az, ru and mixed,
+  plus an open speech set (FLEURS).
+- **Real users**: the demo is tested with 5–10 people, ideally contact-centre or bank staff, and the results
+  are published.
+- **Synthetic only where data is private** (customers, application status), and labelled as synthetic.
 
 One stage per week (roughly). Each stage follows the same loop:
 
@@ -22,8 +36,9 @@ Rule: no code goes in that its author cannot explain line by line.
 
 ### Stage 2. Data
 - Concepts: document parsing, OCR, cleaning, chunking, chunk size and overlap, metadata.
-- Do: write the DemoBank documents (tariffs, cards, deposits, loans, FAQ) in az and ru; ingest them
-  next to the CBAR documents; try two chunk sizes.
+- Do: collect public documents of 3–5 banks (tariffs, cards, deposits, loans, FAQ) in az and ru, with a
+  source list; collect 100+ real customer questions; ingest the documents next to the CBAR ones; try two
+  chunk sizes.
 - Done when: the new documents are indexed with source and page, and the chunk-size result is recorded.
 
 ### Stage 3. Retrieval
@@ -52,8 +67,8 @@ Rule: no code goes in that its author cannot explain line by line.
 
 ### Stage 7. Speech recognition (ASR)
 - Concepts: ASR / STT, WER, CER, VAD, sampling rate, code-switching.
-- Do: measure several ASR models on an open Azerbaijani speech set (e.g. FLEURS) and on own recordings
-  (including numbers and mixed az/ru phrases).
+- Do: record 10–15 people (with consent) reading real customer questions, including numbers and mixed
+  az/ru phrases; measure several ASR models on these recordings and on FLEURS.
 - Done when: a WER / CER table picks the model, with latency next to accuracy.
 
 ### Stage 8. Speech synthesis (TTS) and text normalization
@@ -75,7 +90,8 @@ Rule: no code goes in that its author cannot explain line by line.
 
 ### Stage 11. Serving and operations
 - Concepts: auth, rate limiting, caching, tracing, cost per conversation, monitoring, feedback loop.
-- Do: auth + rate limit on the API; live tracing; thumbs up / down stored and turned into new eval cases.
+- Do: auth + rate limit on the API; live tracing; thumbs up / down stored and turned into new eval cases;
+  a user test with 5–10 people (ideally contact-centre or bank staff), results written up.
 
 ### Stage 12. Deployment and presentation
 - Concepts: CI/CD, secrets, cloud deployment.
