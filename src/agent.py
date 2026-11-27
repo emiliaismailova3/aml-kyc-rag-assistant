@@ -69,7 +69,7 @@ AGENT_MAX_ATTEMPTS = 2
 
 # When the agent loops until the step limit (it kept searching without settling on an answer),
 # answer the question with the base RAG pipeline instead of returning nothing. Measured before this
-# existed: 4 of the 15 gold questions ended in the step limit (docs/STATUS.md). AGENT_RAG_FALLBACK=0
+# existed: 4 of the 15 gold questions ended in the step limit (docs/VERIFICATION.md). AGENT_RAG_FALLBACK=0
 # in .env turns it off, e.g. to measure the agent alone.
 def rag_fallback_enabled() -> bool:
     return os.getenv("AGENT_RAG_FALLBACK", "1").strip().lower() not in {"0", "false", "no", "off"}

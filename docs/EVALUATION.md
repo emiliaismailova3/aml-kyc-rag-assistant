@@ -1,13 +1,13 @@
 # Evaluation and extensions — detailed notes
 
 Full measurements behind the [main README](../README.md): what each extension does, how it was verified,
-the RAGAS results and their limitations. Status of every component: [`STATUS.md`](STATUS.md) ·
+the RAGAS results and their limitations. Status of every component: [`VERIFICATION.md`](VERIFICATION.md) ·
 design decisions: [`DECISIONS.md`](DECISIONS.md) · engineering notes: [`NOTES.md`](NOTES.md).
 
 ## Document-assistant extensions
 
 On top of the RAG core, this project adds the pieces of a small "document assistant" for a
-fintech/factoring setting. **Honest status of every piece is in [`docs/STATUS.md`](STATUS.md)**;
+fintech/factoring setting. **Honest status of every piece is in [`docs/VERIFICATION.md`](VERIFICATION.md)**;
 design choices are in [`docs/DECISIONS.md`](DECISIONS.md).
 
 ```mermaid

@@ -3,7 +3,7 @@
 Counts, per question: hit the step limit (the agent kept searching; the base-RAG fallback then
 answered), unanswered (an error was returned), refused ("I don't know ..."), and which tools ran.
 Baseline before the 3-search cap and the fallback: 4 of 15 ended in the step limit with no answer
-(2026-10-12, docs/STATUS.md).
+(2026-10-12, docs/VERIFICATION.md).
 
 The answers are also written in src/evaluate.py's cache format to
 data/eval_results/agent_samples_cache.json, so the agent RAGAS run can score them without

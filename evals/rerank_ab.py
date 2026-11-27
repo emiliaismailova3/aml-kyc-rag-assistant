@@ -66,7 +66,7 @@ def main() -> None:
     if not args.skip_agent:
         report["agent_reranker_on"] = agent_step_limits()
     report["agent_baseline_without_reranker"] = {"step_limit_failures": 4, "of": 15, "ids": ["q02", "q05", "q07", "q10"],
-                                                 "source": "docs/STATUS.md, 2026-10-12 run"}
+                                                 "source": "docs/VERIFICATION.md, 2026-10-12 run"}
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps({k: {x: y for x, y in v.items() if x != "rows"} for k, v in report.items()}, indent=1))

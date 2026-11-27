@@ -4,7 +4,7 @@ The agent (LangGraph) talks to the model through LangChain's ChatOpenAI, not
 through src/llm_client.py, so its calls are recorded by this callback instead:
 latency, token counts, estimated cost, status. Retries inside the agent are still
 the OpenAI client's built-in ones, and there is no provider fallback for the agent
-(see docs/STATUS.md).
+(see docs/VERIFICATION.md).
 """
 
 from __future__ import annotations
