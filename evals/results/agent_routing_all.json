@@ -1,11 +1,11 @@
 {
   "scenarios": 16,
-  "passed": 14,
-  "accuracy": 0.875,
+  "passed": 16,
+  "accuracy": 1.0,
   "by_expected_tool": {
     "calculator": "2/2",
-    "internet_search": "2/3",
-    "search_knowledge_base (rag)": "5/6",
+    "internet_search": "3/3",
+    "search_knowledge_base (rag)": "6/6",
     "sql_query": "3/3",
     "extract_invoice": "2/2"
   },
@@ -14,11 +14,12 @@
       "id": "t01",
       "expected": "calculator",
       "used": [
-        "calculator"
+        "calculator",
+        "search_knowledge_base"
       ],
       "passed": true,
       "error": null,
-      "seconds": 2.3
+      "seconds": 25.0
     },
     {
       "id": "t02",
@@ -33,10 +34,12 @@
     {
       "id": "t03",
       "expected": "internet_search",
-      "used": [],
-      "passed": false,
-      "error": "GraphRecursionError",
-      "seconds": 25.2
+      "used": [
+        "internet_search"
+      ],
+      "passed": true,
+      "error": null,
+      "seconds": 15.0
     },
     {
       "id": "t04",
@@ -56,7 +59,7 @@
       ],
       "passed": true,
       "error": null,
-      "seconds": 5.2
+      "seconds": 6.9
     },
     {
       "id": "t06",
@@ -66,25 +69,27 @@
       ],
       "passed": true,
       "error": null,
-      "seconds": 8.4
+      "seconds": 4.2
     },
     {
       "id": "t07",
-      "expected": "search_knowledge_base (rag)",
-      "used": [],
-      "passed": false,
-      "error": "GraphRecursionError",
-      "seconds": 12.1
-    },
-    {
-      "id": "t08",
       "expected": "search_knowledge_base (rag)",
       "used": [
         "search_knowledge_base"
       ],
       "passed": true,
       "error": null,
-      "seconds": 14.6
+      "seconds": 18.2
+    },
+    {
+      "id": "t08",
+      "expected": "search_knowledge_base (rag)",
+      "used": [
+        "rag_fallback"
+      ],
+      "passed": true,
+      "error": null,
+      "seconds": 63.4
     },
     {
       "id": "t09",
@@ -94,7 +99,7 @@
       ],
       "passed": true,
       "error": null,
-      "seconds": 2.1
+      "seconds": 2.5
     },
     {
       "id": "t10",
@@ -104,7 +109,7 @@
       ],
       "passed": true,
       "error": null,
-      "seconds": 3.6
+      "seconds": 4.0
     },
     {
       "id": "t11",
@@ -114,7 +119,7 @@
       ],
       "passed": true,
       "error": null,
-      "seconds": 1.2
+      "seconds": 2.2
     },
     {
       "id": "t12",
@@ -124,7 +129,7 @@
       ],
       "passed": true,
       "error": null,
-      "seconds": 1.2
+      "seconds": 1.6
     },
     {
       "id": "t13",
@@ -134,7 +139,7 @@
       ],
       "passed": true,
       "error": null,
-      "seconds": 0.9
+      "seconds": 1.1
     },
     {
       "id": "t14",
@@ -144,7 +149,7 @@
       ],
       "passed": true,
       "error": null,
-      "seconds": 2.7
+      "seconds": 3.6
     },
     {
       "id": "t15",
@@ -154,7 +159,7 @@
       ],
       "passed": true,
       "error": null,
-      "seconds": 1.9
+      "seconds": 2.5
     },
     {
       "id": "t16",
@@ -164,7 +169,7 @@
       ],
       "passed": true,
       "error": null,
-      "seconds": 2.7
+      "seconds": 1.8
     }
   ]
 }
