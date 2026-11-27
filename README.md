@@ -27,6 +27,7 @@ invoice extraction), and every piece is measured: what was checked, how, and wha
 | **Answer quality (RAGAS, 15-question gold set)\*** | faithfulness **0.83**, answer relevancy **0.84** |
 | **Retrieval fix** | unanswered questions **5/15 → 1/15** after diagnosing a recall problem (top-k 4 → 8) |
 | **Agent reliability** | agent runs ending with no answer **4/15 → 0/15** after tracing the loop and adding hard tool-call caps + a RAG fallback |
+| **Agent tool choice** | correct tool on **16/16** routing scenarios (knowledge base, SQL, invoice, calculator, web) |
 | **Hallucination guard on real scanned receipts** | invented values accepted **6/30 → 0/30** after adding a grounding check |
 | **Read-only SQL tool** | 23 attack-style queries rejected (parser + view whitelist + read-only DB role) |
 | **Engineering** | **300+ automated tests**, lint and a Docker smoke test in CI on every push |
@@ -81,6 +82,28 @@ flowchart LR
    and a base-RAG fallback stop it from looping.
 4. **Evaluation** ([`evals/`](evals/README.md)): RAGAS for answer quality, plus separate checks for
    routing, invoice extraction, security and latency.
+
+## How the project evolved
+
+Each stage started from a measurement, not a guess. Dates are from the commit history.
+
+| When | Stage | What was measured and what changed |
+|---|---|---|
+| Sep 2026 | **RAG baseline** | Corpus of 16 regulatory PDFs, hand-written 15-question gold set, Chroma, FastAPI, agent, Docker |
+| Oct 1–6 | **First live runs** | 13 issues found against a real LLM and fixed; RAGAS made resumable under API quotas; **refusals 5/15 → 1/15** after finding a recall problem (top-k 4 → 8); CI with lint and a Docker smoke test |
+| Oct 10–11 | **Document checks** | Invoice OCR + LLM extraction with Pydantic validation, company matching, pgvector, read-only SQL tool (23 attack queries rejected), LLM client with retries and fallback |
+| Oct 21 | **Real documents and security** | 30 real scanned receipts: **invented values accepted 6/30 → 0/30** with a grounding check; prompt-injection and PII defences with their own test sets; reranker tried and **kept only with an honest "no measured gain"** |
+| Oct 22–23 | **Agent reliability** | Step-by-step traces showed the agent's answer being cut off by the step counter: hard tool-call caps + RAG fallback, **unanswered 4/15 → 0/15**, routing **14/16 → 16/16** |
+
+Full numbers: [`docs/EVALUATION.md`](docs/EVALUATION.md) · what was and was not verified:
+[`docs/VERIFICATION.md`](docs/VERIFICATION.md) · design decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md).
+
+## What's next
+
+Turning the core into a **voice assistant for bank customers in Azerbaijani and Russian**: multilingual
+retrieval (the current embedding model is English-only), hybrid BM25 + vector search, a larger eval set built
+from real customer questions, Azerbaijani speech recognition and synthesis measured on recordings from
+many speakers, and a public demo.
 
 ## Quickstart
 

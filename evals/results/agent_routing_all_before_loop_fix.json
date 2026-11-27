@@ -1,0 +1,170 @@
+{
+  "scenarios": 16,
+  "passed": 14,
+  "accuracy": 0.875,
+  "by_expected_tool": {
+    "calculator": "2/2",
+    "internet_search": "2/3",
+    "search_knowledge_base (rag)": "5/6",
+    "sql_query": "3/3",
+    "extract_invoice": "2/2"
+  },
+  "rows": [
+    {
+      "id": "t01",
+      "expected": "calculator",
+      "used": [
+        "calculator"
+      ],
+      "passed": true,
+      "error": null,
+      "seconds": 2.3
+    },
+    {
+      "id": "t02",
+      "expected": "calculator",
+      "used": [
+        "calculator"
+      ],
+      "passed": true,
+      "error": null,
+      "seconds": 1.2
+    },
+    {
+      "id": "t03",
+      "expected": "internet_search",
+      "used": [],
+      "passed": false,
+      "error": "GraphRecursionError",
+      "seconds": 25.2
+    },
+    {
+      "id": "t04",
+      "expected": "internet_search",
+      "used": [
+        "internet_search"
+      ],
+      "passed": true,
+      "error": null,
+      "seconds": 4.8
+    },
+    {
+      "id": "t05",
+      "expected": "internet_search",
+      "used": [
+        "internet_search"
+      ],
+      "passed": true,
+      "error": null,
+      "seconds": 5.2
+    },
+    {
+      "id": "t06",
+      "expected": "search_knowledge_base (rag)",
+      "used": [
+        "search_knowledge_base"
+      ],
+      "passed": true,
+      "error": null,
+      "seconds": 8.4
+    },
+    {
+      "id": "t07",
+      "expected": "search_knowledge_base (rag)",
+      "used": [],
+      "passed": false,
+      "error": "GraphRecursionError",
+      "seconds": 12.1
+    },
+    {
+      "id": "t08",
+      "expected": "search_knowledge_base (rag)",
+      "used": [
+        "search_knowledge_base"
+      ],
+      "passed": true,
+      "error": null,
+      "seconds": 14.6
+    },
+    {
+      "id": "t09",
+      "expected": "search_knowledge_base (rag)",
+      "used": [
+        "search_knowledge_base"
+      ],
+      "passed": true,
+      "error": null,
+      "seconds": 2.1
+    },
+    {
+      "id": "t10",
+      "expected": "search_knowledge_base (rag)",
+      "used": [
+        "search_knowledge_base"
+      ],
+      "passed": true,
+      "error": null,
+      "seconds": 3.6
+    },
+    {
+      "id": "t11",
+      "expected": "sql_query",
+      "used": [
+        "sql_query"
+      ],
+      "passed": true,
+      "error": null,
+      "seconds": 1.2
+    },
+    {
+      "id": "t12",
+      "expected": "sql_query",
+      "used": [
+        "sql_query"
+      ],
+      "passed": true,
+      "error": null,
+      "seconds": 1.2
+    },
+    {
+      "id": "t13",
+      "expected": "sql_query",
+      "used": [
+        "sql_query"
+      ],
+      "passed": true,
+      "error": null,
+      "seconds": 0.9
+    },
+    {
+      "id": "t14",
+      "expected": "extract_invoice",
+      "used": [
+        "extract_invoice"
+      ],
+      "passed": true,
+      "error": null,
+      "seconds": 2.7
+    },
+    {
+      "id": "t15",
+      "expected": "extract_invoice",
+      "used": [
+        "extract_invoice"
+      ],
+      "passed": true,
+      "error": null,
+      "seconds": 1.9
+    },
+    {
+      "id": "t16",
+      "expected": "search_knowledge_base (rag)",
+      "used": [
+        "search_knowledge_base"
+      ],
+      "passed": true,
+      "error": null,
+      "seconds": 2.7
+    }
+  ]
+}

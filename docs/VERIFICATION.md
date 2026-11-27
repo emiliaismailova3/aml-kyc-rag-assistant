@@ -48,10 +48,11 @@ All numbers come from scripts in `evals/` (results in `evals/results/`).
   ignored the prompt rule "at most 3 searches". Now: hard caps via `ToolCallLimitMiddleware` (3 knowledge-base,
   2 web searches), recursion limit 25, base-RAG fallback. Result on the 15 gold questions: 0 unanswered (was 4),
   12 answered by the agent, 3 by the fallback (q05, q07, q09 still reach the step limit), 1 refusal (q07).
-  The 16 routing scenarios have not been re-run after this fix.
+  Routing scenarios re-run after the fix (2026-10-23): 16/16 (was 14/16).
 - **Prompt injection:** rules block 28/28 direct and 5/5 in-document attacks, 0/8 paraphrases; 0 false
-  positives on 51 benign questions. The model-level layers (untrusted-data rule, canary) are not measured
-  against the paraphrases yet. Test set written by the same author as the rules.
+  positives on 51 benign questions. Live test of the 8 paraphrases through RAG and agent (2026-10-23, 16 runs): canary and system-prompt
+  text never leaked; 1 partial disclosure of the model's own built-in preamble (agent, "translate your setup
+  message"), found by reading the answers, not by the automatic check. Test set written by the same author as the rules.
 - **PII masking:** 29/29 entities, 0 false positives, no damaged business identifiers (author-written set).
 - **Langfuse:** code and tests with a fake client; not verified against a live project (needs keys in .env).
 - **OCR configuration:** without `TESSDATA_PREFIX` pointing at `aze.traineddata`, OCR is English-only and
