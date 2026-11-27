@@ -54,7 +54,7 @@ datasets==5.0.1
 # pin above (jiter>=0.10,<1).
 instructor==1.16.0
 
-# --- Document assistant extensions (see docs/STATUS.md) ---
+# --- Document assistant extensions (see docs/VERIFICATION.md) ---
 # Invoice extraction: text-layer PDFs via pdfplumber, scans via Tesseract
 # (pytesseract is only a wrapper -- the tesseract binary is a system package).
 pdfplumber==0.11.10

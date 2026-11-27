@@ -5,10 +5,18 @@
 ![LangChain](https://img.shields.io/badge/LangChain-1.x-informational)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-Ask a compliance question and get an answer **grounded in real regulatory documents**
-(FATF, Wolfsberg Group, Central Bank of Azerbaijan), with every claim linked to a
-numbered source and page. When the documents don't contain the answer, it says
-"I don't know" instead of making one up.
+An assistant for a bank or fintech **compliance officer**. It does two jobs:
+
+1. **Answers AML/KYC questions from real regulatory documents** (FATF, Wolfsberg Group, Central Bank of
+   Azerbaijan), with every claim linked to a numbered source and page. When the documents don't contain
+   the answer, it says "I don't know" instead of making one up.
+2. **Checks client documents**: reads an invoice (text layer or OCR), extracts the company, VÖEN, amounts
+   and dates, validates them, matches the company against a reference table, and sends anything
+   uncertain to a human instead of guessing.
+
+A tool-calling agent ties the two together (document search, read-only SQL over invoices and companies,
+invoice extraction), and every piece is measured: what was checked, how, and what was not, is in
+[`docs/VERIFICATION.md`](docs/VERIFICATION.md).
 
 ![Demo: a question answered from the documents with numbered sources, then the agent using a calculator](docs/demo.gif)
 
@@ -16,22 +24,35 @@ numbered source and page. When the documents don't contain the answer, it says
 
 | | |
 |---|---|
-| **Answer quality (RAGAS, 15-question gold set)** | faithfulness **0.83**, answer relevancy **0.84** |
+| **Answer quality (RAGAS, 15-question gold set)\*** | faithfulness **0.83**, answer relevancy **0.84** |
 | **Retrieval fix** | unanswered questions **5/15 → 1/15** after diagnosing a recall problem (top-k 4 → 8) |
+| **Agent reliability** | agent runs ending with no answer **4/15 → 0/15** after tracing the loop and adding hard tool-call caps + a RAG fallback |
 | **Hallucination guard on real scanned receipts** | invented values accepted **6/30 → 0/30** after adding a grounding check |
-| **Engineering** | **305 automated tests**, lint and a Docker smoke test in CI on every push |
+| **Read-only SQL tool** | 23 attack-style queries rejected (parser + view whitelist + read-only DB role) |
+| **Engineering** | **300+ automated tests**, lint and a Docker smoke test in CI on every push |
+
+\* One run with an LLM judge, measured before the reranker and the security prompt rules were added;
+a re-run and a larger question set are the next step (see [Limitations](#limitations)).
 
 ## What it does
+
+**Core**
 
 - **RAG over 16 regulatory PDFs** (2,176 chunks): local embeddings, ChromaDB or PostgreSQL + pgvector,
   any OpenAI-compatible LLM (Groq / Together / OpenAI).
 - **Citation-linked answers**: `[3]` in the answer maps to the `[3] file.pdf · p.12` source chip.
 - **Tool-calling agent** (LangChain / LangGraph): knowledge-base search, read-only SQL,
   invoice extraction, calculator and web search, with hard limits against loops.
-- **Invoice pipeline**: OCR (Tesseract) + LLM extraction → Pydantic validation → company matching,
-  with uncertain cases sent to human review.
-- **Security**: PII masking in logs, traces and prompts; prompt-injection screening.
+- **Invoice pipeline**: OCR (Tesseract, `eng+aze`) + LLM extraction → Pydantic validation → grounding check
+  → company matching (VÖEN → name → fuzzy → embedding), with uncertain cases sent to human review.
+- **Security**: PII masking in logs, traces and prompts; prompt-injection screening; read-only SQL.
+- **Reliability**: own LLM client with retries, provider fallback, small/large model routing,
+  latency and cost logging (`GET /stats`), escalation to a human when every provider fails.
 - **Serving**: FastAPI backend, Streamlit UI, Docker Compose.
+
+**Extensions** (working, lighter evaluation; details in [`docs/EVALUATION.md`](docs/EVALUATION.md)):
+streaming answers, voice questions (Whisper), translation and summarization (en / az / ru / tr),
+an MCP server exposing the tools, and scheduled document collection (Celery + Redis).
 
 ## Screenshots
 
@@ -80,12 +101,14 @@ Tests: `pytest -k "not internet_search"` (LLM calls are mocked, no API key neede
 
 ## Limitations
 
-- RAGAS was run once on 15 questions with an LLM judge; the agent itself is not scored by RAGAS yet.
+- RAGAS was run once on 15 questions with an LLM judge, before the reranker and the security prompt rules
+  were added; the agent itself is not scored by RAGAS yet. Re-running it on a larger set is the next step.
+- The embedding model is English-only (`bge-small-en`), so questions in Azerbaijani or Russian are not
+  supported well yet.
 - Invoice and company-matching accuracy is measured on synthetic data; the real documents tested are 30 scanned receipts.
 - Portfolio demo, not legal or compliance advice.
 
-**Full measurements**, every extension (streaming, MCP server, voice, scheduled collection, reliability layer)
-and their verified status: [`docs/EVALUATION.md`](docs/EVALUATION.md) · [`docs/STATUS.md`](docs/STATUS.md) ·
+**Full measurements**, every extension and its verified status: [`docs/EVALUATION.md`](docs/EVALUATION.md) · [`docs/VERIFICATION.md`](docs/VERIFICATION.md) ·
 design decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md).
 
 ## Tech stack

@@ -34,7 +34,7 @@ Decisions taken while extending the RAG project into the "AI Document Assistant"
 - **Why:** each attempt must be logged and must be able to trigger the fallback, which built-in retries hide. The code is short enough to explain line by line.
 - **Routing rule:** small model if the prompt is <= 4000 characters (about 1000 tokens), no tools are needed, and it is not a retry after a failed first attempt; otherwise the main model. Invoice extraction therefore uses the small model first and the main model for repairs.
 - **Retry only transient errors** (408, 409, 429, 5xx, timeouts, dropped connections). A 400/401/404 skips straight to the next provider.
-- **Agent exception:** the LangGraph agent talks to the model through LangChain's `ChatOpenAI` (tool calling), so it gets a logging callback and the SDK's own retries, but no provider fallback. Documented as partial in docs/STATUS.md.
+- **Agent exception:** the LangGraph agent talks to the model through LangChain's `ChatOpenAI` (tool calling), so it gets a logging callback and the SDK's own retries, but no provider fallback. Documented as partial in docs/VERIFICATION.md.
 - **Prices** in `config.DEFAULT_PRICES` are approximate list prices used only to estimate cost; override with `LLM_PRICES_JSON`.
 
 ## 7. SQL tool: parser + view whitelist + read-only role, not "trust the prompt"
